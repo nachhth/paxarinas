@@ -1,0 +1,27 @@
+{
+  "name": "paxarinas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Guía e identificador das aves de Galicia, en galego",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "typecheck": "nuxt typecheck",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "nuxt": "^4.5.2",
+    "vue": "^3.5.41",
+    "vue-router": "^5.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@vite-pwa/nuxt": "^1.1.1",
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.3.9"
+  }
+}

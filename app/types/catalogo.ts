@@ -1,0 +1,45 @@
+export interface Nomes {
+  gl: string | null
+  es: string | null
+  en: string | null
+  pt: string | null
+}
+
+/**
+ * A atribución vai pegada á imaxe e non nunha táboa aparte, para que sexa
+ * imposible mostrar unha foto sen dicir de quen é e baixo que licenza.
+ */
+export interface Foto {
+  /** 250 px, para o listado. */
+  mini: string
+  /** 500 px, para a ficha. */
+  grande: string
+  autor: string | null
+  licenza: string
+  licenzaUrl: string | null
+  /** Páxina do ficheiro en Commons. */
+  orixe: string | null
+}
+
+export interface Especie {
+  slug: string
+  cientifico: string
+  autoria: string | null
+  orde: string | null
+  familia: string | null
+  xenero: string | null
+  nomes: Nomes
+  foto: Foto | null
+  /** Nº de ocorrencias rexistradas en GBIF para Galicia. Serve de proxy de abundancia. */
+  citas: number
+  /** Menos de 10 citas: divagante, escapada de catividade ou erro de identificación. */
+  rara: boolean
+  gbifKey: number
+}
+
+export interface Catalogo {
+  version: number
+  fontes: string[]
+  total: number
+  especies: Especie[]
+}

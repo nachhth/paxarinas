@@ -1,0 +1,11 @@
+{
+  // Nuxt xera as configuracións reais en .nuxt/ ao correr `nuxt prepare`.
+  // Este ficheiro só as referencia, para que o editor resolva os alias ~ e ~~.
+  "files": [],
+  "references": [
+    { "path": "./.nuxt/tsconfig.app.json" },
+    { "path": "./.nuxt/tsconfig.server.json" },
+    { "path": "./.nuxt/tsconfig.shared.json" },
+    { "path": "./.nuxt/tsconfig.node.json" }
+  ]
+}

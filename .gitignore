@@ -1,0 +1,33 @@
+# Nuxt / Node
+node_modules/
+.nuxt/
+.output/
+.data/
+dist/
+*.log
+
+# ETL
+etl/.cache/
+etl/out/
+__pycache__/
+*.pyc
+.venv/
+
+# data/ NON se ignora: o catálogo xerado é a fonte de verdade da app e vai
+# versionado, porque reconstruílo depende de APIs externas que cambian.
+
+# As imaxes si quedan fóra: son ~30 MB de binarios reconstruíbles con
+# `python etl/wikimedia_fotos.py`. A súa autoría e licenza, en cambio, van
+# versionadas en data/especies.json.
+public/media/
+
+# Entorno
+.env
+.env.*
+!.env.example
+
+# Editores / SO
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
