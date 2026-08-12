@@ -64,6 +64,40 @@ img {
 .cabeceira {
   background: var(--fento);
   padding: 0.75rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.menú {
+  display: flex;
+  gap: 0.35rem;
+}
+
+/* Alto de 44 px: son os dous enlaces que máis se tocan e van no borde
+   superior, onde o dedo acerta peor. */
+.menú a {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border-radius: var(--raio);
+  color: #fff;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.menú a:hover {
+  background: rgb(255 255 255 / 12%);
+}
+
+/* Exacta e non `router-link-active`: "/" é prefixo de todo e marcaría "Todas"
+   como activa tamén no mapa. */
+.menú a.router-link-exact-active {
+  background: rgb(255 255 255 / 20%);
+  font-weight: 600;
 }
 
 .marca {

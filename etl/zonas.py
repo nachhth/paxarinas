@@ -67,9 +67,12 @@ MAX_ANEIS = 6
 # completa non se tocaban, e GBIF rexeita ese polígono cun 400.
 DECIMAIS = 4
 
-# As comarcas ordénanse por número de especies; por debaixo disto o dato é
-# ruído de mostraxe e non se garda para non enchelo de citas soltas.
-MINIMO_CITAS_ESPECIE = 3
+# Gárdase todo, mesmo as especies cunha soa cita nunha comarca. Un limiar de
+# tres deixaba fóra do mapa 87 especies, e eran precisamente as divagantes:
+# para unha ave que só se viu unha vez, esa única cita é o dato. Custa un 20 %
+# máis de pares zona-especie, uns 13 kB. O que non se pode facer con isto é
+# deducir abundancia, pero iso xa se advirte en todas partes.
+MINIMO_CITAS_ESPECIE = 1
 
 
 # ---------------------------------------------------------------- xeometría
@@ -318,27 +321,66 @@ def baixa_comarcas() -> list[dict]:
     return [e for e in datos["elements"] if e.get("members")]
 
 
+# As catro provincias, por QID. É unha lista pechada e non vai cambiar, e
+# escríbense aquí porque a etiqueta de Wikidata non serve para sacar o nome:
+# en galego o artigo vai contraído ("provincia da Coruña"), así que quitarlle
+# o prefixo deixaría "Coruña" en vez de "A Coruña".
+PROVINCIAS = {
+    "Q82119": "A Coruña",
+    "Q95027": "Lugo",
+    "Q95038": "Ourense",
+    "Q95086": "Pontevedra",
+}
+
+
 def provincias(qids: list[str]) -> dict[str, str]:
     """Provincia de cada comarca, pola vía do QID que OSM xa trae nas etiquetas.
 
     OSM non etiqueta a provincia na relación da comarca, e deducila dos
     concellos membros obrigaría a outra volta de consultas.
+
+    A pertenza búscase transitiva (`P131+`) e non directa: algunha comarca
+    colga en Wikidata da comunidade autónoma e non da provincia, e cunha
+    consulta directa quedaría etiquetada como "Galicia".
     """
     valores = " ".join(f"wd:{q}" for q in qids)
-    consulta = f"""SELECT ?c ?provLabel WHERE {{
+    provincias_wd = " ".join(f"wd:{q}" for q in PROVINCIAS)
+    consulta = f"""SELECT ?c ?prov WHERE {{
       VALUES ?c {{ {valores} }}
-      ?c wdt:P131 ?prov .
-      SERVICE wikibase:label {{ bd:serviceParam wikibase:language "gl,es" }}
+      VALUES ?prov {{ {provincias_wd} }}
+      ?c wdt:P131+ ?prov .
     }}"""
 
     datos = get_json(WIKIDATA, {"format": "json", "query": consulta})
-    saida: dict[str, str] = {}
-    for fila in datos["results"]["bindings"]:
-        qid = fila["c"]["value"].rsplit("/", 1)[-1]
-        nome = fila["provLabel"]["value"]
-        # "provincia da Coruña" → "A Coruña"; interesa o nome, non o tipo.
-        saida[qid] = nome.replace("provincia de ", "").replace("provincia da ", "")
-    return saida
+    return {
+        fila["c"]["value"].rsplit("/", 1)[-1]: PROVINCIAS[fila["prov"]["value"].rsplit("/", 1)[-1]]
+        for fila in datos["results"]["bindings"]
+    }
+
+
+# As mesmas catro provincias, na codificación de GADM, para o respaldo por
+# coordenadas. Os nomes póñense en galego: GADM devólveos en castelán.
+PROVINCIAS_GADM = {
+    "ESP.12.1_1": "A Coruña",
+    "ESP.12.2_1": "Lugo",
+    "ESP.12.3_1": "Ourense",
+    "ESP.12.4_1": "Pontevedra",
+}
+
+
+def provincia_por_coordenadas(centro: tuple[float, float]) -> str | None:
+    """Provincia á que pertence un punto, segundo GADM.
+
+    Respaldo para as comarcas que en Wikidata colgan directamente de Galicia
+    e non da súa provincia. É un oco dos datos de Wikidata, non un erro noso,
+    e arránxase mirando onde cae o centro da comarca.
+    """
+    lon, lat = centro
+    rexions = get_json(f"{GBIF}/geocode/reverse", {"lat": lat, "lng": lon})
+    for rexion in rexions:
+        if rexion.get("type") == "GADM2":
+            return PROVINCIAS_GADM.get(rexion["id"])
+    return None
 
 
 def especies_da_zona(poligono: str) -> dict[int, int]:
@@ -396,6 +438,11 @@ def main() -> None:
             log(f"  aviso: {nome} sen xeometría utilizable, sáltase")
             continue
 
+        centro_zona = centro(aneis)
+        provincia = provs.get(etiquetas.get("wikidata", ""))
+        if provincia is None:
+            provincia = provincia_por_coordenadas(centro_zona)
+
         poligono = wkt(aneis)
         contas = especies_da_zona(poligono)
         especies = {k: v for k, v in contas.items() if v >= MINIMO_CITAS_ESPECIE}
@@ -403,13 +450,13 @@ def main() -> None:
         zonas.append({
             "id": str(rel["id"]),
             "nome": nome,
-            "provincia": provs.get(etiquetas.get("wikidata", ""), None),
+            "provincia": provincia,
             "wikidata": etiquetas.get("wikidata"),
             # Exactamente os mesmos puntos que se lle mandaron a GBIF: a zona
             # que se debuxa e na que se te sitúa ten que ser aquela da que se
             # contaron as aves.
             "aneis": [[[x, y] for x, y in a] for a in aneis],
-            "centro": list(centro(aneis)),
+            "centro": list(centro_zona),
             "vertices": sum(len(a) for a in aneis),
             "citas": sum(contas.values()),
             "especies": {str(k): v for k, v in sorted(especies.items(), key=lambda x: -x[1])},

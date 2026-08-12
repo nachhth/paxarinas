@@ -36,8 +36,14 @@ python etl/wikimedia_fotos.py  # fotos + autoría (~30 MB, uns 10 minutos)
 python etl/wikidata_nomes.py   # nomes galegos que GBIF non trae
 python etl/fenoloxia.py        # en que meses se ve cada especie
 python etl/valida_fenoloxia.py # comproba a clasificación fenolóxica
+python etl/xenocanto_cantos.py # cantos (~40 min, precisa ffmpeg)
+python etl/zonas.py            # comarcas e as aves de cada unha
 python etl/build.py            # fusiona todo en data/especies.json
 ```
+
+Os cantos recórtanse a 15 segundos e recodifícanse a Opus, así que fai falta
+**ffmpeg** (`winget install Gyan.FFmpeg`). Tras instalalo hai que reiniciar a
+consola, ou definir `PAXARINAS_FFMPEG` coa ruta ao executable.
 
 As descargas van con pausa entre peticións (`PAXARINAS_PAUSA`, 0,35 s por
 defecto) porque Wikimedia devolve 429 se se lle aperta. Se o proceso se corta,

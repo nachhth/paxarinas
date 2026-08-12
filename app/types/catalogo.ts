@@ -74,6 +74,51 @@ export interface Especie {
   gbifKey: number
 }
 
+/** Lonxitude e latitude, nesa orde, como en GeoJSON. */
+export type Punto = [number, number]
+
+/**
+ * Unha comarca. As comarcas non teñen competencias propias, pero son a escala
+ * á que a xente localiza o que ve: "vin un miñato en Bergantiños".
+ */
+export interface Zona {
+  id: string
+  nome: string
+  provincia: string | null
+  /**
+   * Aneis pechados: o primeiro é o continental e os demais son illas. Son os
+   * mesmos puntos, xa simplificados, cos que se lle preguntou a GBIF que aves
+   * hai aquí; por iso a zona na que te sitúa a app é exactamente aquela da que
+   * se contaron as especies.
+   */
+  aneis: Punto[][]
+  centro: Punto
+  citas: number
+  /** Índices no catálogo de especies, de máis a menos citada. */
+  especies: number[]
+  /** Citas de cada especie, na mesma orde que `especies`. */
+  citasEspecie: number[]
+  /** Os mellores lugares de observación de eBird nesta comarca. */
+  lugares: Lugar[]
+}
+
+/** Un hotspot de eBird: sitio público con reconto histórico de especies. */
+export interface Lugar {
+  nome: string
+  lon: number
+  lat: number
+  /** Especies rexistradas alí desde sempre. */
+  especies: number
+}
+
+export interface Zonas {
+  version: number
+  fontes: string[]
+  aviso: string
+  total: number
+  zonas: Zona[]
+}
+
 export interface Catalogo {
   version: number
   fontes: string[]

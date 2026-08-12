@@ -25,13 +25,17 @@ tecnología. Cualquier decisión que la debilite va en contra del proyecto.
 | Con nombre gallego | 450 (87%) — 331 de Catalogue of Life, 119 de Wikidata |
 | Con foto | 506 (98%), de Wikimedia Commons con autoría y licencia |
 | Con fenología fiable | 313 (61%) |
+| Con canto | 374 (72%) |
 | Familias | 79 |
-| Catálogo | 372 kB · Fotos: 34,5 MB · Despliegue: ~38 MB |
+| Comarcas con aves contadas | 53 (204 especies de media) |
+| Catálogo | 477 kB · Zonas: 188 kB · Fotos: 34,5 MB · Cantos: 15,1 MB |
+| Despliegue generado | 1942 ficheros, 56,5 MB |
 
 Funciona: listado con búsqueda y filtros (incluido **"vense en <mes>"**), ficha
-por especie con barra de doce meses, página de créditos, PWA instalable, las
-517 fichas prerenderizadas a HTML estático. Desplegado en Vercel desde GitHub
-(`nachhth/paxarinas`).
+por especie con barra de doce meses **y mapa de en qué comarcas está citada**,
+**mapa general por comarcas con "onde estou"**,
+página de créditos, PWA instalable, las 517 fichas prerenderizadas a HTML
+estático. Desplegado en Vercel desde GitHub (`nachhth/paxarinas`).
 
 Reparto de estatus: 198 escasa · 101 estival · 77 invernante · 72 residente ·
 64 de paso · 6 sin datos. Las 198 "escasa" son las que tienen menos de 50
@@ -46,10 +50,12 @@ sitio estático. **La app nunca llama a una API externa en runtime.**
 ```
 etl/            common.py (HTTP con caché, ritmo, reintentos, lector de .env)
                 gbif_especies.py · wikidata_nomes.py · wikimedia_fotos.py
-                fenoloxia.py · build.py (fusiona todo)
+                fenoloxia.py · xenocanto_cantos.py · zonas.py
+                build.py (fusiona todo)
 data/           especies.json — el catálogo, versionado, fuente de verdad
+                zonas.json — las 53 comarcas y las aves de cada una
 public/media/   fotos, versionadas (Vercel construye desde GitHub)
-app/            Nuxt 4: pages/, composables/useCatalogo.ts, types/catalogo.ts
+app/            Nuxt 4: pages/, components/, composables/, types/catalogo.ts
 ```
 
 ## Decisiones que conviene no revertir sin saber por qué
@@ -79,6 +85,32 @@ un User-Agent que lleva contacto real. Sin eso devuelve 429 en pocas decenas de
 peticiones. Los errores de red se capturan como `OSError` + `HTTPException`:
 `ConnectionResetError` no es un `URLError` y tumbaba el proceso.
 
+**El mapa no lleva teselas.** Es un SVG de las 53 comarcas dibujado en el
+dispositivo. Una capa de OpenStreetMap dejaría el mapa en blanco justo donde se
+va a usar. Se pierde el detalle del terreno; se gana que funcione sin cobertura.
+
+**El polígono simplificado de cada comarca es uno solo**, y sirve a la vez para
+preguntarle a GBIF qué aves hay, para dibujar el mapa y para situarte. Si fueran
+distintos, la comarca que te sale marcada podría no ser aquella de la que se
+contaron las aves. Medido contra los polígonos originales de OSM: **99% de los
+puntos caen en la comarca correcta**, 0,79% no caen en ninguna (ahí se ofrece la
+más próxima, avisando de que es aproximada) y 0,3% caen en la vecina.
+
+**GBIF rechaza los polígonos por URL larga y por geometría inválida**, y en los
+dos casos con un 400 sin explicación. Tres cosas que costaron encontrar:
+Douglas-Peucker sobre un anillo cerrado degenera (el segmento inicio-fin mide
+cero) y **cruza el polígono consigo mismo**; al simplificar la costa las puntas
+de una ría se cruzan y hay que deshacer el lazo; y **redondear las coordenadas
+puede invalidar un polígono que era válido**, así que se redondea antes de
+validar, no después. El límite práctico está en unos 130 vértices.
+
+**`zonas.json` va en un fichero aparte del catálogo.** Queda en su propio chunk
+(200 kB, 58 kB gzip) que cargan `/mapa` y las fichas de especie —los dos sitios
+donde hay mapa—, pero no la portada ni los créditos. Dentro del catálogo se lo
+tragaría todo el mundo. Si algún día hace falta quitárselo a las fichas, la vía
+es guardar en `especies.json` solo los índices de comarca de cada ave y dejar la
+geometría bajo demanda.
+
 **TypeScript fijado a la serie 5.** `vue-tsc` no funciona con TypeScript 7, que
 eliminó el subpath `./lib/tsc`. El `tsconfig.json` raíz solo referencia los que
 Nuxt genera en `.nuxt/`.
@@ -91,8 +123,9 @@ Nuxt genera en `.nuxt/`.
 | Catalogue of Life (vía GBIF) | 331 nombres gallegos | ✔ CC BY |
 | Wikidata | 119 nombres gallegos más | ✔ Sin clave |
 | Wikimedia Commons | 506 fotos con autoría | ✔ CC |
+| OpenStreetMap | Fronteras de las 53 comarcas | ✔ ODbL, atribuida en créditos |
 | eBird | Checklist regional (500 spp), 1720 hotspots | Clave en `.env` |
-| xeno-canto | Cantos | Clave en `.env`, **sin usar todavía** |
+| xeno-canto | 374 cantos con autoría | Clave en `.env` |
 | RAG | Nomenclatura normativa | ⚠️ Pendiente de permiso |
 
 **eBird no sirve para fenología**: su API 2.0 está pensado para observaciones
@@ -102,6 +135,31 @@ solo existen en la web. Por eso la fenología sale de GBIF.
 Al pedir la clave de eBird se declaró que **no se redistribuirían registros
 individuales ni datos de observadores**, solo agregados. Es un compromiso real
 que condiciona qué se puede hacer con esa fuente.
+
+**Se guardan también las especies con una sola cita en una comarca.** Un umbral
+de tres dejaba fuera del mapa 87 especies, y eran justo las divagantes: para un
+ave vista una vez, esa cita es el dato. Cuesta un 20% más de pares zona-especie
+(~10 kB). Ahora solo queda sin mapa *Egretta gularis*. Lo que no se puede hacer
+con esto es deducir abundancia — pero eso ya se advierte en todas partes.
+
+**Las comarcas no salen de GADM**, que es la división que usa el resto del ETL:
+su nivel 3 en España no corresponde a las comarcas (A Coruña tiene 3) y devuelve
+los nombres como `n.a. (145)`. OSM sí las tiene delimitadas y con `name:gl`. La
+provincia de cada una viene de Wikidata por el QID que OSM ya trae en las
+etiquetas, con un respaldo por coordenadas contra GADM: hay alguna comarca que
+en Wikidata cuelga de Galicia y no de su provincia.
+
+**Los cantos se eligen por proximidad geográfica antes que por calidad.** Hay
+subespecies con voces distintas — el paporrubio canario sin ir más lejos — así
+que una grabación de Tenerife no vale en una guía gallega. La búsqueda cascadea:
+Galicia y entorno → noroeste ibérico → España → cualquier lugar. Todas las
+especies comunes acaban con grabación local; las 147 remotas son nórdicas y
+divagantes nunca grabadas en Iberia.
+
+**Se descartan las licencias ND.** Recortar a 15 s y recodificar a Opus crea una
+obra derivada, y esas licencias no lo permiten. Requiere `ffmpeg`; tras
+instalarlo, las consolas ya abiertas siguen con el PATH viejo, y para eso está
+`PAXARINAS_FFMPEG`.
 
 **Wikidata mete falsos positivos**: cuando una especie no tiene nombre popular
 en gallego, `rdfs:label` devuelve el propio nombre científico. Se filtran 27 así.
@@ -131,8 +189,10 @@ Es lo primero que debería revisar la SGO si colabora.
 
 ## Lo siguiente
 
-1. **Cantos de xeno-canto** — la clave ya está en `.env`. Restringir a
-   grabaciones con licencia CC y guardar autoría igual que con las fotos.
+1. **Revisar el mapa en un móvil.** El listado de una comarca de costa pasa de
+   250 filas sin virtualizar, y las comarcas pequeñas del interior son difíciles
+   de acertar con el dedo (por eso hay también un selector). Falta comprobar que
+   la geolocalización se comporta con permiso denegado y bajo techo.
 2. **Spike de BirdNET en el navegador** — la única incógnita que puede obligar
    a cambiar de arquitectura. Si la inferencia no rinde en un móvil real, hay
    que envolver con Capacitor y publicar en tiendas. Mejor saberlo pronto.
@@ -165,7 +225,10 @@ python etl/gbif_especies.py            # base: especies y taxonomía
 python etl/wikidata_nomes.py           # nombres gallegos que faltan
 python etl/wikimedia_fotos.py          # fotos (~10 min, 34 MB)
 python etl/fenoloxia.py                # distribución mensual y estatus
-python etl/build.py                    # fusiona todo → data/especies.json
+python etl/valida_fenoloxia.py         # regresiones de la clasificación
+python etl/xenocanto_cantos.py         # cantos (~40 min, 15 MB, necesita ffmpeg)
+python etl/zonas.py                    # comarcas y sus aves (~5 min)
+python etl/build.py                    # fusiona todo → data/especies.json + zonas.json
 ```
 
 Las credenciales van en `.env` (fuera del repositorio; ver `.env.example`).

@@ -76,6 +76,21 @@ def carga_fotos() -> dict[str, dict]:
     return json.loads(ficheiro.read_text(encoding="utf-8"))["fotos"]
 
 
+def carga_hotspots() -> dict[str, list[dict]]:
+    """Lugares de observación de eBird, agrupados por comarca."""
+    ficheiro = OUT_DIR / "ebird_hotspots.json"
+    if not ficheiro.exists():
+        log("Aviso: sen ebird_hotspots.json. As zonas irán sen lugares.")
+        return {}
+
+    por_comarca: dict[str, list[dict]] = {}
+    for h in json.loads(ficheiro.read_text(encoding="utf-8"))["hotspots"]:
+        if not h["comarca"]:
+            continue
+        por_comarca.setdefault(h["comarca"], []).append(h)
+    return por_comarca
+
+
 def constrúe_zonas(catalogo: list[dict]) -> int:
     """Escribe data/zonas.json coas comarcas e as especies de cada unha.
 
@@ -90,6 +105,11 @@ def constrúe_zonas(catalogo: list[dict]) -> int:
 
     bruto = json.loads(ficheiro.read_text(encoding="utf-8"))
     por_gbif = {e["gbifKey"]: i for i, e in enumerate(catalogo)}
+    hotspots = carga_hotspots()
+
+    # Só os mellores de cada comarca: hai 1293 situados e a lista enteira
+    # engordaría o ficheiro sen axudar a decidir a onde ir.
+    TOPE_LUGARES = 8
 
     zonas = []
     ignoradas = 0
@@ -114,13 +134,18 @@ def constrúe_zonas(catalogo: list[dict]) -> int:
             "citas": z["citas"],
             "especies": indices,
             "citasEspecie": citas,
+            "lugares": [
+                {"nome": h["nome"], "lon": h["lon"], "lat": h["lat"],
+                 "especies": h["especies"]}
+                for h in hotspots.get(z["id"], [])[:TOPE_LUGARES]
+            ],
         })
 
     DESTINO_ZONAS.parent.mkdir(parents=True, exist_ok=True)
     DESTINO_ZONAS.write_text(
         json.dumps({
             "version": 1,
-            "fontes": ["OpenStreetMap", "GBIF"],
+            "fontes": ["OpenStreetMap", "GBIF"] + (["eBird"] if hotspots else []),
             "aviso": "As comarcas non teñen competencias propias: úsanse porque "
                      "son a escala á que a xente localiza o que ve. O reconto é "
                      "de citas rexistradas, non de abundancia real: hai máis "

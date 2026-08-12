@@ -4,8 +4,14 @@ import type { Especie } from '~/types/catalogo'
 const route = useRoute()
 const catalogo = useCatalogo()
 
-const especie = computed<Especie | undefined>(() =>
-  catalogo.especies.find(e => e.slug === route.params.slug))
+/**
+ * Gárdase o índice e non só a especie: o ficheiro de zonas refírese ás
+ * especies pola súa posición no catálogo, non polo slug.
+ */
+const indice = computed(() =>
+  catalogo.especies.findIndex(e => e.slug === route.params.slug))
+
+const especie = computed<Especie | undefined>(() => catalogo.especies[indice.value])
 
 if (!especie.value) {
   throw createError({ statusCode: 404, statusMessage: 'Especie non atopada', fatal: true })
@@ -105,6 +111,23 @@ const outrosNomes = computed(() => {
 
       <p class="fonte">
         {{ catalogo.avisoFenoloxia }}
+      </p>
+    </section>
+
+    <section class="bloque">
+      <h2>Onde se ve</h2>
+      <!-- Só no cliente: renderizado no servidor, os 81 kB de xeometría das 53
+           comarcas quedan incrustados en cada unha das 517 fichas e disparan o
+           precache de 15 a 61 MB. A xeometría xa viaxa nun chunk compartido. -->
+      <ClientOnly>
+        <MapaEspecie :indice="indice" :nome="titulo" />
+        <template #fallback>
+          <div class="mapa-oco" aria-hidden="true" />
+        </template>
+      </ClientOnly>
+      <p class="fonte">
+        Son citas rexistradas, non abundancia: hai máis citas onde hai máis
+        xente mirando. <NuxtLink to="/mapa">Ver todas as comarcas</NuxtLink>.
       </p>
     </section>
 
@@ -228,6 +251,16 @@ const outrosNomes = computed(() => {
   font-weight: 600;
   text-transform: capitalize;
   margin: 0 0 0.6rem;
+}
+
+/* Reserva o oco do mapa mentres monta no cliente, para que non salte o resto
+   da ficha. Galicia é case cadrada, e o lenzo ten a mesma anchura máxima. */
+.mapa-oco {
+  width: 100%;
+  max-width: 26rem;
+  aspect-ratio: 1 / 1;
+  background: var(--bretema);
+  border-radius: var(--raio);
 }
 
 .estatus--incerto {

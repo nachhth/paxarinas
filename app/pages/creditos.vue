@@ -63,6 +63,35 @@ const porLicenza = computed(() => {
     </section>
 
     <section class="bloque">
+      <h2>Comarcas e mapa</h2>
+      <p>
+        As fronteiras das comarcas proceden de
+        <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>,
+        e distribúense baixo a
+        <a href="https://opendatacommons.org/licenses/odbl/" rel="license">ODbL</a>.
+        Están simplificadas para que caiban no dispositivo: as lindes que
+        amosa o mapa desvíanse ata uns centos de metros das reais.
+      </p>
+      <p>
+        As especies de cada comarca contáronse pedíndolle a GBIF as citas que
+        caen dentro dese mesmo polígono simplificado. O mapa non usa teselas
+        nin fai ningunha petición: debúxase enteiro no dispositivo, para que
+        funcione sen cobertura.
+      </p>
+    </section>
+
+    <section class="bloque">
+      <h2>Lugares de observación</h2>
+      <p>
+        Os lugares que amosa cada comarca proveñen dos hotspots de
+        <a href="https://ebird.org">eBird</a>, do Cornell Lab of Ornithology.
+        Son sitios públicos co número de especies rexistradas neles desde
+        sempre. Non se emprega ningún dato de observadores nin ningunha
+        observación individual.
+      </p>
+    </section>
+
+    <section class="bloque">
       <h2>Fotografías</h2>
       <p>
         {{ conFoto.length }} fotografías de
