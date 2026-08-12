@@ -48,32 +48,34 @@ const porLicenza = computed(() => {
       </ul>
     </section>
 
-    <table class="taboa">
-      <thead>
+    <div class="taboa-scroll">
+      <table class="taboa">
+        <thead>
         <tr>
-          <th>Especie</th>
-          <th>Autoría</th>
-          <th>Licenza</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="e in conFoto" :key="e.slug">
-          <td>
-            <NuxtLink :to="`/especie/${e.slug}`">{{ e.cientifico }}</NuxtLink>
-          </td>
-          <td>{{ e.foto!.autor ?? 'Autoría non indicada' }}</td>
-          <td>
-            <a v-if="e.foto!.licenzaUrl" :href="e.foto!.licenzaUrl" rel="license">
-              {{ e.foto!.licenza }}
-            </a>
-            <span v-else>{{ e.foto!.licenza }}</span>
-            <template v-if="e.foto!.orixe">
-              · <a :href="e.foto!.orixe">orixe</a>
-            </template>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+            <th>Especie</th>
+            <th>Autoría</th>
+            <th>Licenza</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="e in conFoto" :key="e.slug">
+            <td>
+              <NuxtLink :to="`/especie/${e.slug}`">{{ e.cientifico }}</NuxtLink>
+            </td>
+            <td>{{ e.foto!.autor ?? 'Autoría non indicada' }}</td>
+            <td>
+              <a v-if="e.foto!.licenzaUrl" :href="e.foto!.licenzaUrl" rel="license">
+                {{ e.foto!.licenza }}
+              </a>
+              <span v-else>{{ e.foto!.licenza }}</span>
+              <template v-if="e.foto!.orixe">
+                · <a :href="e.foto!.orixe">orixe</a>
+              </template>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
@@ -110,11 +112,17 @@ const porLicenza = computed(() => {
   color: var(--tinta-suave);
 }
 
-/* A táboa é ancha; que rompa a páxina en móbil sería peor que un scroll seu. */
-.taboa {
-  display: block;
+/* O scroll vai nun contedor propio e non na táboa: `display: block` sobre unha
+   táboa rompe o seu modelo de caixa e desaliña as columnas. */
+.taboa-scroll {
   overflow-x: auto;
   width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.taboa {
+  width: 100%;
+  min-width: 30rem;
   border-collapse: collapse;
   font-size: 0.85rem;
 }

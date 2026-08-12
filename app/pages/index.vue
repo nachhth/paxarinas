@@ -111,8 +111,11 @@ const resultados = computed(() => {
   flex: 1 1 16rem;
 }
 
+/* 44px de alto mínimo: por debaixo diso os controis fallan ao dedo.
+   `font: inherit` mantén os 16px que evitan o zoom automático de iOS. */
 .busca,
 .selector {
+  min-height: 2.75rem;
   padding: 0.55rem 0.7rem;
   font: inherit;
   color: inherit;
@@ -124,9 +127,16 @@ const resultados = computed(() => {
 .check {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  min-height: 2.75rem;
+  gap: 0.5rem;
   font-size: 0.9rem;
   color: var(--tinta-suave);
+  cursor: pointer;
+}
+
+.check input {
+  width: 1.15rem;
+  height: 1.15rem;
 }
 
 .conta {

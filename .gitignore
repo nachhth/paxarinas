@@ -16,10 +16,10 @@ __pycache__/
 # data/ NON se ignora: o catálogo xerado é a fonte de verdade da app e vai
 # versionado, porque reconstruílo depende de APIs externas que cambian.
 
-# As imaxes si quedan fóra: son ~30 MB de binarios reconstruíbles con
-# `python etl/wikimedia_fotos.py`. A súa autoría e licenza, en cambio, van
-# versionadas en data/especies.json.
-public/media/
+# public/media/ tampouco se ignora, aínda que sexan ~30 MB de binarios
+# reconstruíbles: o despregamento constrúese desde GitHub, e o que non estea no
+# repositorio non existe no build. Rexeralos en cada despregamento suporía
+# martelar Wikimedia cada vez.
 
 # Entorno
 .env
