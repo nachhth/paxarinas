@@ -8,6 +8,18 @@ const conFoto = computed(() =>
     .filter(e => e.foto)
     .sort((a, b) => a.cientifico.localeCompare(b.cientifico)))
 
+const conCanto = computed(() => catalogo.especies.filter(e => e.canto))
+
+/** De que país procede cada gravación: as voces varían entre subespecies. */
+const porPais = computed(() => {
+  const conta = new Map<string, number>()
+  for (const e of conCanto.value) {
+    const p = e.canto!.pais ?? 'sen indicar'
+    conta.set(p, (conta.get(p) ?? 0) + 1)
+  }
+  return [...conta.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
+})
+
 /** De onde saen os nomes galegos, para que se poida auditar. */
 const porFonteNome = computed(() => {
   const conta = new Map<string, number>()
@@ -61,6 +73,22 @@ const porLicenza = computed(() => {
       <ul class="resumo">
         <li v-for="[licenza, n] in porLicenza" :key="licenza">
           {{ licenza }}: {{ n }}
+        </li>
+      </ul>
+    </section>
+
+    <section v-if="conCanto.length" class="bloque">
+      <h2>Gravacións</h2>
+      <p>
+        {{ conCanto.length }} gravacións de
+        <a href="https://xeno-canto.org">xeno-canto</a>, recortadas a 15
+        segundos e recodificadas. Por iso só se empregan gravacións cuxa
+        licenza permite obras derivadas. Prioritízanse as gravadas en Galicia
+        e arredores, porque hai subespecies con voces distintas.
+      </p>
+      <ul class="resumo">
+        <li v-for="[pais, n] in porPais" :key="pais">
+          {{ pais }}: {{ n }}
         </li>
       </ul>
     </section>

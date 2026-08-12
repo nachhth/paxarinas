@@ -1,15 +1,19 @@
 """Constrúe o catálogo que consome a app a partir das saídas das fontes.
 
-Por agora só hai unha fonte (GBIF). Cando se engadan Wikidata, xeno-canto ou a
-lista normativa da RAG, engádense aquí como capas sucesivas sobre a mesma base:
-GBIF fixa a taxonomía e a lista de especies, o resto enriquece.
+As fontes son capas sucesivas sobre unha mesma base: GBIF fixa a taxonomía e a
+listaxe de especies, e o resto enriquece. Se unha fonte non se executou aínda,
+o catálogo constrúese igual sen ela.
 
 Uso:
-    python etl/gbif_especies.py     # descarga a fonte
-    python etl/build.py             # constrúe o catálogo
+    python etl/gbif_especies.py     # base: especies e taxonomía
+    python etl/wikidata_nomes.py    # nomes galegos que faltan
+    python etl/wikimedia_fotos.py   # fotos con autoría
+    python etl/fenoloxia.py         # distribución mensual
+    python etl/xenocanto_cantos.py  # gravacións
+    python etl/build.py             # fusiona todo
 
 Saída:
-    public/data/especies.json
+    data/especies.json
 """
 
 from __future__ import annotations
@@ -25,6 +29,11 @@ RAIZ = Path(__file__).resolve().parent.parent
 # que as fichas se poidan prerenderizar e para que non haxa ningunha petición
 # de rede que poida fallar no monte.
 DESTINO = RAIZ / "data" / "especies.json"
+
+# As zonas van nun ficheiro aparte e non dentro do catálogo: só as necesita a
+# páxina do mapa, e Nuxt parte o bundle por rota. Metelas no catálogo faríallas
+# baixar a todo o mundo, incluído quen só abre unha ficha.
+DESTINO_ZONAS = RAIZ / "data" / "zonas.json"
 
 
 def primeiro(lista: list[str] | None) -> str | None:
@@ -49,6 +58,15 @@ def carga_fenoloxia() -> dict[str, dict]:
     return json.loads(ficheiro.read_text(encoding="utf-8"))["fenoloxia"]
 
 
+def carga_cantos() -> dict[str, dict]:
+    """Gravacións de xeno-canto, coa súa autoría e procedencia."""
+    ficheiro = OUT_DIR / "xenocanto_cantos.json"
+    if not ficheiro.exists():
+        log("Aviso: sen xenocanto_cantos.json. O catálogo sairá sen cantos.")
+        return {}
+    return json.loads(ficheiro.read_text(encoding="utf-8"))["cantos"]
+
+
 def carga_fotos() -> dict[str, dict]:
     """Metadatos de Wikimedia, se xa se executou esa fonte."""
     ficheiro = OUT_DIR / "wikimedia_fotos.json"
@@ -56,6 +74,70 @@ def carga_fotos() -> dict[str, dict]:
         log("Aviso: sen wikimedia_fotos.json. O catálogo sairá sen fotos.")
         return {}
     return json.loads(ficheiro.read_text(encoding="utf-8"))["fotos"]
+
+
+def constrúe_zonas(catalogo: list[dict]) -> int:
+    """Escribe data/zonas.json coas comarcas e as especies de cada unha.
+
+    As especies gárdanse como índices no catálogo, non como nomes nin claves de
+    GBIF: son 53 zonas por ~170 especies e repetir a cadea en cada unha
+    multiplicaría por cinco o peso do ficheiro, que viaxa enteiro ao móbil.
+    """
+    ficheiro = OUT_DIR / "zonas.json"
+    if not ficheiro.exists():
+        log("Aviso: sen zonas.json. Non haberá mapa por zonas.")
+        return 0
+
+    bruto = json.loads(ficheiro.read_text(encoding="utf-8"))
+    por_gbif = {e["gbifKey"]: i for i, e in enumerate(catalogo)}
+
+    zonas = []
+    ignoradas = 0
+    for z in bruto["zonas"]:
+        indices, citas = [], []
+        for clave, n in z["especies"].items():
+            i = por_gbif.get(int(clave))
+            # Especies que GBIF cita na zona pero que non están no catálogo:
+            # sinónimos e taxons non aceptados, que xa se filtraron antes.
+            if i is None:
+                ignoradas += 1
+                continue
+            indices.append(i)
+            citas.append(n)
+
+        zonas.append({
+            "id": z["id"],
+            "nome": z["nome"],
+            "provincia": z["provincia"],
+            "aneis": z["aneis"],
+            "centro": z["centro"],
+            "citas": z["citas"],
+            "especies": indices,
+            "citasEspecie": citas,
+        })
+
+    DESTINO_ZONAS.parent.mkdir(parents=True, exist_ok=True)
+    DESTINO_ZONAS.write_text(
+        json.dumps({
+            "version": 1,
+            "fontes": ["OpenStreetMap", "GBIF"],
+            "aviso": "As comarcas non teñen competencias propias: úsanse porque "
+                     "son a escala á que a xente localiza o que ve. O reconto é "
+                     "de citas rexistradas, non de abundancia real: hai máis "
+                     "citas onde hai máis xente mirando.",
+            "total": len(zonas),
+            "zonas": zonas,
+        }, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8",
+    )
+
+    tamano = DESTINO_ZONAS.stat().st_size / 1024
+    medias = sum(len(z["especies"]) for z in zonas) / len(zonas)
+    log(f"\nZonas: {len(zonas)} comarcas, {medias:.0f} especies de media, {tamano:.0f} kB")
+    if ignoradas:
+        log(f"  claves de GBIF sen especie no catálogo: {ignoradas}")
+    log(f"Escrito en {DESTINO_ZONAS.relative_to(RAIZ)}")
+    return len(zonas)
 
 
 def main() -> None:
@@ -67,6 +149,7 @@ def main() -> None:
     fotos = carga_fotos()
     nomes_wd = carga_nomes_wikidata()
     fenoloxia = carga_fenoloxia()
+    cantos = carga_cantos()
 
     catalogo = []
     sen_aceptar = 0
@@ -88,6 +171,7 @@ def main() -> None:
 
         vern = e.get("vernaculos", {})
         foto = fotos.get(sci)
+        canto = cantos.get(sci)
 
         # Catalogue of Life (vía GBIF) manda; Wikidata só enche os ocos. Cando
         # chegue a lista normativa da RAG, entrará por diante das dúas.
@@ -121,6 +205,16 @@ def main() -> None:
                 "licenzaUrl": foto["licenzaUrl"],
                 "orixe": foto["orixe"],
             } if foto else None,
+            # Igual que coas fotos: a atribución viaxa coa gravación.
+            "canto": {
+                "ficheiro": canto["ficheiro"],
+                "autor": canto["autor"],
+                "licenza": canto["licenza"],
+                "orixe": canto["orixe"],
+                "lugar": canto["lugar"],
+                "pais": canto["pais"],
+                "tipo": canto["tipo"],
+            } if canto else None,
             # Os meses son dato bruto de GBIF; o estatus é unha estimación
             # feita sobre eles. Van xuntos para que a app poida amosar a
             # evidencia ao lado da interpretación.
@@ -138,7 +232,8 @@ def main() -> None:
             "version": 1,
             "fontes": (["GBIF"]
                        + (["Wikidata"] if nomes_wd else [])
-                       + (["Wikimedia Commons"] if fotos else [])),
+                       + (["Wikimedia Commons"] if fotos else [])
+                       + (["xeno-canto"] if cantos else [])),
             "avisoFenoloxia": "Estatus estimado a partir da distribución mensual "
                               "das citas de GBIF, non determinado por criterio experto.",
             "total": len(catalogo),
@@ -158,8 +253,12 @@ def main() -> None:
     log(f"  con foto:        {con_foto} ({con_foto / len(catalogo):.0%})")
     con_fen = sum(1 for e in catalogo if (e["fenoloxia"] or {}).get("fiable"))
     log(f"  con fenoloxía fiable: {con_fen} ({con_fen / len(catalogo):.0%})")
+    con_canto = sum(1 for e in catalogo if e["canto"])
+    log(f"  con canto:       {con_canto} ({con_canto / len(catalogo):.0%})")
     log(f"  descartadas por taxonomía non aceptada: {sen_aceptar}")
     log(f"\nEscrito en {DESTINO.relative_to(RAIZ)}")
+
+    constrúe_zonas(catalogo)
 
 
 if __name__ == "__main__":

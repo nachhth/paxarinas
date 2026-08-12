@@ -2,6 +2,7 @@
   <div class="sitio">
     <header class="cabeceira">
       <NuxtLink to="/" class="marca">
+        <img class="marca__icona" src="/marca.svg" width="34" height="24" alt="">
         <span class="marca__nome">Paxariñas</span>
         <span class="marca__lema">As aves de Galicia</span>
       </NuxtLink>

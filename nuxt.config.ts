@@ -16,6 +16,12 @@ export default defineNuxtConfig({
       background_color: '#f4f5f2',
       display: 'standalone',
       start_url: '/',
+      icons: [
+        { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+        { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+        // A maskable deixa o paxaro dentro do 80% central: Android recorta.
+        { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      ],
     },
     workbox: {
       // O esqueleto e o catálogo van enteiros ao dispositivo: a app úsase no
@@ -24,6 +30,7 @@ export default defineNuxtConfig({
       // instalación inviable con datos móbiles.
       globPatterns: [
         '**/*.{js,css,html,json,svg,woff2}',
+        '{icon-192,icon-512,icon-maskable-512,apple-touch-icon,favicon-32}.png',
         'media/fotos/*-250.{jpg,jpeg,png}',
       ],
       maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
@@ -35,6 +42,17 @@ export default defineNuxtConfig({
           options: {
             cacheName: 'paxarinas-fotos-grandes',
             expiration: { maxEntries: 600, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        },
+        {
+          // Os cantos son 17 MB: precacheados dobrarían a instalación, así que
+          // van quedando no dispositivo a medida que se escoitan.
+          urlPattern: /\/media\/cantos\/.*\.opus$/,
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'paxarinas-cantos',
+            expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 365 },
             cacheableResponse: { statuses: [0, 200] },
           },
         },
@@ -83,6 +101,13 @@ export default defineNuxtConfig({
           content: 'Guía das aves de Galicia en galego: nomes tradicionais, fichas, distribución e cantos.',
         },
         { name: 'theme-color', content: '#2d5016' },
+      ],
+      link: [
+        // O SVG leva o seu propio fondo, así que serve en tema claro e escuro;
+        // o PNG de 32 px é o recambio para navegadores que non o admiten.
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32.png' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
       ],
     },
   },

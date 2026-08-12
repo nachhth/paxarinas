@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Paxariñas">
+  <title>Paxariñas</title>
+  <!-- Paleta do monte galego: fento de fondo, brétema no corpo, toxo no bico. -->
+  <rect width="64" height="64" rx="14" fill="#2d5016"/>
+  <g>
+    <!-- Carriza co rabo erguido: silueta rotunda para que lea a 16 px. -->
+    <path fill="#f4f5f2" d="M26 18q10 .5 14 9 3 4 5 7l7.5-19q3.5-1 2.5 4L47 40q-4.5 7-14 6.5-11-1-13.5-14.5Q15 25 26 18Z"/>
+    <path fill="#e8b923" d="M20.5 23.2 8.5 27.9l12 4.6z"/>
+    <circle cx="24.5" cy="25.5" r="1.9" fill="#2d5016"/>
+  </g>
+</svg>

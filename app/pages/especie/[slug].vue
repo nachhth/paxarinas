@@ -89,6 +89,11 @@ const outrosNomes = computed(() => {
       </dl>
     </section>
 
+    <section v-if="especie.canto" class="bloque">
+      <h2>Como soa</h2>
+      <ReproducirCanto :canto="especie.canto" :especie="titulo" />
+    </section>
+
     <section v-if="especie.fenoloxia && especie.fenoloxia.total" class="bloque">
       <h2>Cando se ve</h2>
       <p v-if="especie.fenoloxia.fiable" class="estatus">{{ especie.fenoloxia.estatus }}</p>

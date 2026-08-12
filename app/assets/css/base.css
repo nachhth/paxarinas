@@ -75,6 +75,11 @@ img {
   flex-wrap: wrap;
 }
 
+.marca__icona {
+  align-self: center;
+  flex: none;
+}
+
 .marca__nome {
   font-size: 1.35rem;
   font-weight: 700;

@@ -60,6 +60,13 @@ AREA_MINIMA_ANEL = 5e-5  # graos²; ~0,45 km² á latitude de Galicia
 
 MAX_ANEIS = 6
 
+# Decimais aos que se redondean as coordenadas. Catro son uns 8 m, de sobra
+# para un polígono xa simplificado a centos de metros, e recortan un terzo do
+# peso do ficheiro. Redondéase antes de validar, non despois: dous puntos que
+# ao redondear caen no mesmo sitio poden cruzar dous lados que en precisión
+# completa non se tocaban, e GBIF rexeita ese polígono cun 400.
+DECIMAIS = 4
+
 # As comarcas ordénanse por número de especies; por debaixo disto o dato é
 # ruído de mostraxe e non se garda para non enchelo de citas soltas.
 MINIMO_CITAS_ESPECIE = 3
@@ -140,12 +147,119 @@ def simplifica(puntos: list[tuple[float, float]], tolerancia: float):
     return [puntos[0], puntos[-1]]
 
 
+def simplifica_anel(anel: list[tuple[float, float]], tolerancia: float):
+    """Simplifica un anel pechado sen deixar de pechalo.
+
+    Douglas-Peucker traballa sobre liñas abertas: se se lle dá un anel, o
+    segmento de referencia vai do primeiro punto a si mesmo, ten lonxitude
+    cero, e a simplificación sae torta. Córtase o anel en dúas metades polo
+    punto máis afastado do inicio, simplifícase cada unha e vólvense pegar.
+    """
+    aberto = anel[:-1]
+    orixe = aberto[0]
+    afastado = max(
+        range(len(aberto)),
+        key=lambda i: (aberto[i][0] - orixe[0]) ** 2 + (aberto[i][1] - orixe[1]) ** 2,
+    )
+    metade1 = simplifica(aberto[:afastado + 1], tolerancia)
+    metade2 = simplifica(aberto[afastado:] + [orixe], tolerancia)
+    return metade1[:-1] + metade2
+
+
+def corte(s1, s2):
+    """Punto onde se cortan dous segmentos por dentro, ou None.
+
+    Tocarse nun extremo non conta: os segmentos consecutivos dun anel sempre
+    comparten un punto e iso non é un cruzamento.
+    """
+    (x1, y1), (x2, y2) = s1
+    (x3, y3), (x4, y4) = s2
+    den = (x2 - x1) * (y4 - y3) - (y2 - y1) * (x4 - x3)
+    if den == 0:
+        return None
+    t = ((x3 - x1) * (y4 - y3) - (y3 - y1) * (x4 - x3)) / den
+    u = ((x3 - x1) * (y2 - y1) - (y3 - y1) * (x2 - x1)) / den
+    if 1e-9 < t < 1 - 1e-9 and 1e-9 < u < 1 - 1e-9:
+        return (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
+    return None
+
+
+def busca_lazo(puntos: list[tuple[float, float]]):
+    """Primeiro par de lados que se cruzan, co punto de corte."""
+    n = len(puntos)
+    for i in range(n):
+        for j in range(i + 2, n):
+            if i == 0 and j == n - 1:
+                continue
+            p = corte((puntos[i], puntos[(i + 1) % n]), (puntos[j], puntos[(j + 1) % n]))
+            if p:
+                return i, j, p
+    return None
+
+
+def desenreda(anel: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """Quita os lazos que deixa a simplificación, ata que o anel sexa simple.
+
+    Ao simplificar a costa, dúas puntas dunha ría poden acabar cruzándose. Un
+    polígono así é inválido: GBIF devólveo cun 400 e o punto-en-polígono deixa
+    de ser fiable. Cada cruzamento parte o anel en dous lazos; consérvase o
+    grande, que é a comarca, e tírase o pequeno, que é o artefacto. O que se
+    perde son lascas de poucas hectáreas nas puntas das rías.
+    """
+    puntos = anel[:-1]
+
+    while (achado := busca_lazo(puntos)) is not None:
+        i, j, p = achado
+        # Os dous lazos nos que o cruzamento parte o anel.
+        a = puntos[:i + 1] + [p] + puntos[j + 1:]
+        b = [p] + puntos[i + 1:j + 1]
+        puntos = a if abs(area_asinada(a + a[:1])) >= abs(area_asinada(b + b[:1])) else b
+        if len(puntos) < 3:
+            return []
+
+    return puntos + [puntos[0]]
+
+
+def autocortase(anel: list[tuple[float, float]]) -> bool:
+    return busca_lazo(anel[:-1]) is not None
+
+
+def redondea(anel: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """Redondea o anel e quita os puntos que quedan pegados, mantendo o peche."""
+    saida: list[tuple[float, float]] = []
+    for x, y in anel:
+        p = (round(x, DECIMAIS), round(y, DECIMAIS))
+        if not saida or p != saida[-1]:
+            saida.append(p)
+    if len(saida) > 1 and saida[0] != saida[-1]:
+        saida.append(saida[0])
+    return saida
+
+
+def anel_valido(anel: list[tuple[float, float]], tolerancia: float):
+    """Simplifica, redondea e desenreda ata que redondear xa non rompa nada.
+
+    Desenredar mete puntos de corte novos, que ao redondearse poden volver
+    xerar un cruzamento. Repítese o ciclo ata que sexa estable; con dúas ou
+    tres voltas sempre abonda.
+    """
+    actual = redondea(simplifica_anel(anel, tolerancia))
+    for _ in range(8):
+        if len(actual) < 4:
+            return []
+        limpo = redondea(desenreda(actual))
+        if limpo == actual:
+            return actual if abs(area_asinada(actual)) > 0 else []
+        actual = limpo
+    return []
+
+
 def aneis_simplificados(aneis: list[list[tuple[float, float]]]) -> list[list[tuple[float, float]]]:
     """Queda co continente e as illas grandes, dentro do orzamento de vértices.
 
-    A tolerancia búscase por bisección en vez de fixarse: unha comarca pequena
-    da costa e outra grande do interior non admiten a mesma, e o que ten que
-    ser igual para todas é o custo, non o detalle.
+    A tolerancia búscase en vez de fixarse: unha comarca pequena da costa e
+    outra grande do interior non admiten a mesma, e o que ten que ser igual
+    para todas é o custo, non o detalle.
     """
     grandes = sorted(
         (a for a in aneis if abs(area_asinada(a)) >= AREA_MINIMA_ANEL),
@@ -155,20 +269,20 @@ def aneis_simplificados(aneis: list[list[tuple[float, float]]]) -> list[list[tup
     if not grandes:  # comarca sen ningún anel por riba do limiar: vale o maior
         grandes = sorted(aneis, key=lambda a: -abs(area_asinada(a)))[:1]
 
-    baixa, alta = 0.0001, 0.05
-    mellor = [simplifica(a, alta) for a in grandes]
+    def a_tolerancia(t: float):
+        proba = (anel_valido(a, t) for a in grandes)
+        return [a for a in proba if len(a) >= 4]
 
-    for _ in range(24):
+    # Tolerancia máis grosa que cabe no orzamento de vértices, por bisección.
+    baixa, alta = 0.0002, 0.05
+    for _ in range(20):
         media = (baixa + alta) / 2
-        proba = [simplifica(a, media) for a in grandes]
-        if sum(len(a) for a in proba) <= ORZAMENTO_VERTICES:
-            mellor, alta = proba, media
+        if sum(len(a) for a in a_tolerancia(media)) <= ORZAMENTO_VERTICES:
+            alta = media
         else:
             baixa = media
 
-    # Un anel reducido a un triángulo degenerado non aporta nada e pode ser
-    # rexeitado por GBIF.
-    return [a for a in mellor if len(a) >= 4 and abs(area_asinada(a)) > 0]
+    return a_tolerancia(alta)
 
 
 def wkt(aneis: list[list[tuple[float, float]]]) -> str:
@@ -177,7 +291,7 @@ def wkt(aneis: list[list[tuple[float, float]]]) -> str:
     for anel in aneis:
         if area_asinada(anel) < 0:
             anel = anel[::-1]
-        pezas.append("((" + ",".join(f"{x:.4f} {y:.4f}" for x, y in anel) + "))")
+        pezas.append("((" + ",".join(f"{x:.{DECIMAIS}f} {y:.{DECIMAIS}f}" for x, y in anel) + "))")
     return "MULTIPOLYGON(" + ",".join(pezas) + ")"
 
 
@@ -291,9 +405,10 @@ def main() -> None:
             "nome": nome,
             "provincia": provs.get(etiquetas.get("wikidata", ""), None),
             "wikidata": etiquetas.get("wikidata"),
-            # Redondeados a 4 decimais (~8 m): máis precisión só engade peso ao
-            # bundle, e o polígono xa está simplificado a centos de metros.
-            "aneis": [[[round(x, 4), round(y, 4)] for x, y in a] for a in aneis],
+            # Exactamente os mesmos puntos que se lle mandaron a GBIF: a zona
+            # que se debuxa e na que se te sitúa ten que ser aquela da que se
+            # contaron as aves.
+            "aneis": [[[x, y] for x, y in a] for a in aneis],
             "centro": list(centro(aneis)),
             "vertices": sum(len(a) for a in aneis),
             "citas": sum(contas.values()),

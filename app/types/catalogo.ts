@@ -39,6 +39,23 @@ export interface Fenoloxia {
   fiable: boolean
 }
 
+/**
+ * Gravación de xeno-canto, recortada a 15 s e recodificada a Opus. Como coas
+ * fotos, a atribución vai pegada ao recurso. `lugar` e `pais` importan: moitas
+ * especies teñen subespecies con voces distintas, e convén que se vexa de onde
+ * saíu a gravación.
+ */
+export interface Canto {
+  ficheiro: string
+  autor: string | null
+  licenza: string | null
+  orixe: string | null
+  lugar: string | null
+  pais: string | null
+  /** song, call, alarm call… tal como o etiquetou quen gravou. */
+  tipo: string | null
+}
+
 export interface Especie {
   slug: string
   cientifico: string
@@ -48,6 +65,7 @@ export interface Especie {
   xenero: string | null
   nomes: Nomes
   foto: Foto | null
+  canto: Canto | null
   fenoloxia: Fenoloxia | null
   /** Nº de ocorrencias rexistradas en GBIF para Galicia. Serve de proxy de abundancia. */
   citas: number

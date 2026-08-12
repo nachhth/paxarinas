@@ -62,7 +62,7 @@ añade las 517 rutas explícitamente.
 |---|---|---|
 | [GBIF](https://www.gbif.org) | Ocurrencias, distribución, taxonomía backbone | Abierta, sin key. Base del catálogo |
 | [eBird API 2.0](https://documenter.getpostman.com/view/664302/S1ENwy59) | Especies presentes por región y época, hotspots | Key gratuita, uso no comercial |
-| [xeno-canto v3](https://xeno-canto.org/explore/api) | Grabaciones de cantos, CC | **API key obligatoria desde oct-2025** |
+| [xeno-canto v3](https://xeno-canto.org/explore/api) | **Cantos de 375 especies** | CC, API key. Ya integrado |
 | Wikidata + Wikimedia Commons | **Fotos de 507 especies**, nomes en `gl` | CC. Fotos ya integradas con su autoría |
 | iNaturalist | Fotos adicionales | CC variable, verificar por imagen |
 | Catalogue of Life (vía GBIF) | **Nomes galegos de 331 especies** | CC BY. Ya integrado |
@@ -90,7 +90,19 @@ de carta en [docs/contactos-nomenclatura.md](docs/contactos-nomenclatura.md).
 divagantes), con taxonomía, nombres en cuatro idiomas, volumen de citas,
 búsqueda con filtros, PWA instalable y las 517 fichas prerenderizadas.
 ✔ Fotos de Wikimedia Commons con atribución, en dos tamaños.
-Falta: cantos, distribución, fenología y hábitat.
+✔ Fenología mensual de GBIF y filtro "vense en \<mes\>".
+✔ Cantos de xeno-canto, recortados a 15 s y recodificados a Opus.
+Falta: hábitat y descripción divulgativa de cada especie.
+
+**Los cantos se eligen por proximidad geográfica antes que por nada más.**
+Muchas especies tienen subespecies con voces distintas — el paporrubio canario
+sin ir más lejos — así que una grabación de Tenerife no sirve en una guía
+gallega. La búsqueda cascadea: Galicia y entorno → noroeste ibérico → España →
+cualquier lugar. Resultado: todas las especies comunes tienen grabación local;
+las 147 remotas son nórdicas y divagantes nunca grabadas en Iberia.
+
+Recortar y recodificar crea una **obra derivada**, así que quedan descartadas
+las licencias ND. Requiere `ffmpeg`.
 
 **Presupuesto de almacenamiento offline.** Wikimedia solo sirve una lista
 cerrada de anchos (20, 40, 60, 120, 250, 330, 500, 960…) y rechaza el resto;
