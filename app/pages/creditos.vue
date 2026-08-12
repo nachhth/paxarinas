@@ -8,6 +8,16 @@ const conFoto = computed(() =>
     .filter(e => e.foto)
     .sort((a, b) => a.cientifico.localeCompare(b.cientifico)))
 
+/** De onde saen os nomes galegos, para que se poida auditar. */
+const porFonteNome = computed(() => {
+  const conta = new Map<string, number>()
+  for (const e of catalogo.especies) {
+    const f = e.nomes.glFonte ?? 'Sen nome galego aínda'
+    conta.set(f, (conta.get(f) ?? 0) + 1)
+  }
+  return [...conta.entries()].sort((a, b) => b[1] - a[1])
+})
+
 /** Cantas fotos hai de cada licenza, para dar conta do conxunto. */
 const porLicenza = computed(() => {
   const conta = new Map<string, number>()
@@ -28,9 +38,16 @@ const porLicenza = computed(() => {
       <h2>Datos</h2>
       <p>
         A listaxe de especies, a taxonomía e o número de citas proveñen de
-        <a href="https://www.gbif.org">GBIF</a>. Os nomes vernáculos galegos
-        proveñen de Catalogue of Life a través de GBIF.
+        <a href="https://www.gbif.org">GBIF</a>. Os nomes galegos veñen de
+        Catalogue of Life a través de GBIF e, para as especies que alí non o
+        teñen, de <a href="https://www.wikidata.org">Wikidata</a>. Cada ficha
+        indica de onde sae o seu.
       </p>
+      <ul class="resumo">
+        <li v-for="[fonte, n] in porFonteNome" :key="fonte">
+          {{ fonte }}: {{ n }}
+        </li>
+      </ul>
     </section>
 
     <section class="bloque">

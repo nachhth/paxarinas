@@ -31,6 +31,24 @@ def primeiro(lista: list[str] | None) -> str | None:
     return lista[0] if lista else None
 
 
+def carga_nomes_wikidata() -> dict[str, dict]:
+    """Nomes galegos de reserva, para as especies que non o traen de GBIF."""
+    ficheiro = OUT_DIR / "wikidata_nomes.json"
+    if not ficheiro.exists():
+        log("Aviso: sen wikidata_nomes.json. Faltarán nomes galegos.")
+        return {}
+    return json.loads(ficheiro.read_text(encoding="utf-8"))["nomes"]
+
+
+def carga_fenoloxia() -> dict[str, dict]:
+    """En que meses se ve cada especie, e o estatus estimado a partir diso."""
+    ficheiro = OUT_DIR / "fenoloxia.json"
+    if not ficheiro.exists():
+        log("Aviso: sen fenoloxia.json. O catálogo sairá sen meses.")
+        return {}
+    return json.loads(ficheiro.read_text(encoding="utf-8"))["fenoloxia"]
+
+
 def carga_fotos() -> dict[str, dict]:
     """Metadatos de Wikimedia, se xa se executou esa fonte."""
     ficheiro = OUT_DIR / "wikimedia_fotos.json"
@@ -47,6 +65,8 @@ def main() -> None:
 
     bruto = json.loads(fonte.read_text(encoding="utf-8"))
     fotos = carga_fotos()
+    nomes_wd = carga_nomes_wikidata()
+    fenoloxia = carga_fenoloxia()
 
     catalogo = []
     sen_aceptar = 0
@@ -69,6 +89,14 @@ def main() -> None:
         vern = e.get("vernaculos", {})
         foto = fotos.get(sci)
 
+        # Catalogue of Life (vía GBIF) manda; Wikidata só enche os ocos. Cando
+        # chegue a lista normativa da RAG, entrará por diante das dúas.
+        gl = primeiro(vern.get("gl"))
+        gl_fonte = "Catalogue of Life" if gl else None
+        if not gl and sci in nomes_wd:
+            gl = nomes_wd[sci]["gl"]
+            gl_fonte = "Wikidata"
+
         catalogo.append({
             "slug": s,
             "cientifico": sci,
@@ -77,9 +105,8 @@ def main() -> None:
             "familia": e.get("familia"),
             "xenero": e.get("xenero"),
             "nomes": {
-                # O galego chega baleiro na maioría: é o oco que ten que
-                # encher Wikidata e, sobre todo, a lista normativa da RAG.
-                "gl": primeiro(vern.get("gl")),
+                "gl": gl,
+                "glFonte": gl_fonte,
                 "es": primeiro(vern.get("es")),
                 "en": primeiro(vern.get("en")),
                 "pt": primeiro(vern.get("pt")),
@@ -94,6 +121,10 @@ def main() -> None:
                 "licenzaUrl": foto["licenzaUrl"],
                 "orixe": foto["orixe"],
             } if foto else None,
+            # Os meses son dato bruto de GBIF; o estatus é unha estimación
+            # feita sobre eles. Van xuntos para que a app poida amosar a
+            # evidencia ao lado da interpretación.
+            "fenoloxia": fenoloxia.get(sci),
             "citas": e["citas"],
             "rara": e["rara"],
             "gbifKey": e["gbifKey"],
@@ -105,7 +136,11 @@ def main() -> None:
     DESTINO.write_text(
         json.dumps({
             "version": 1,
-            "fontes": ["GBIF"] + (["Wikimedia Commons"] if fotos else []),
+            "fontes": (["GBIF"]
+                       + (["Wikidata"] if nomes_wd else [])
+                       + (["Wikimedia Commons"] if fotos else [])),
+            "avisoFenoloxia": "Estatus estimado a partir da distribución mensual "
+                              "das citas de GBIF, non determinado por criterio experto.",
             "total": len(catalogo),
             "especies": catalogo,
         }, ensure_ascii=False, separators=(",", ":")),
@@ -117,9 +152,12 @@ def main() -> None:
     tamano = DESTINO.stat().st_size / 1024
 
     log(f"Catálogo: {len(catalogo)} especies, {familias} familias, {tamano:.0f} kB")
-    log(f"  con nome galego: {con_gl} ({con_gl / len(catalogo):.0%})")
+    de_wd = sum(1 for e in catalogo if e["nomes"]["glFonte"] == "Wikidata")
+    log(f"  con nome galego: {con_gl} ({con_gl / len(catalogo):.0%}), {de_wd} deles de Wikidata")
     con_foto = sum(1 for e in catalogo if e["foto"])
     log(f"  con foto:        {con_foto} ({con_foto / len(catalogo):.0%})")
+    con_fen = sum(1 for e in catalogo if (e["fenoloxia"] or {}).get("fiable"))
+    log(f"  con fenoloxía fiable: {con_fen} ({con_fen / len(catalogo):.0%})")
     log(f"  descartadas por taxonomía non aceptada: {sen_aceptar}")
     log(f"\nEscrito en {DESTINO.relative_to(RAIZ)}")
 

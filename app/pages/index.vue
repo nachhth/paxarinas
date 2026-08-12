@@ -3,9 +3,24 @@ import type { Especie } from '~/types/catalogo'
 
 const catalogo = useCatalogo()
 
+const MESES = ['xaneiro', 'febreiro', 'marzo', 'abril', 'maio', 'xuño',
+  'xullo', 'agosto', 'setembro', 'outubro', 'novembro', 'decembro']
+
 const busca = ref('')
 const ordeEscollida = ref('')
 const incluirRaras = ref(false)
+/** '' = todo o ano; se non, índice 0-11 do mes escollido. */
+const mesEscollido = ref<string>('')
+
+/** Un mes conta como época da especie se recolle polo menos a metade do que
+    lle tocaría cunha presenza uniforme (8,3%). */
+const LIMIAR_MES = 4
+
+function estaNoMes(e: Especie, mes: number) {
+  const f = e.fenoloxia
+  if (!f || !f.fiable) return false
+  return (f.meses[mes] ?? 0) >= LIMIAR_MES
+}
 
 const ordes = computed(() => {
   const conta = new Map<string, number>()
@@ -25,6 +40,7 @@ const resultados = computed(() => {
   return catalogo.especies.filter((e) => {
     if (e.rara && !incluirRaras.value) return false
     if (ordeEscollida.value && e.orde !== ordeEscollida.value) return false
+    if (mesEscollido.value !== '' && !estaNoMes(e, Number(mesEscollido.value))) return false
     if (termo && !textoBuscable(e).includes(termo)) return false
     return true
   })
@@ -46,6 +62,13 @@ const resultados = computed(() => {
         placeholder="Buscar por nome ou familia…"
         aria-label="Buscar especie"
       >
+
+      <select v-model="mesEscollido" class="selector" aria-label="Filtrar por mes">
+        <option value="">Todo o ano</option>
+        <option v-for="(nome, i) in MESES" :key="nome" :value="String(i)">
+          Vense en {{ nome }}
+        </option>
+      </select>
 
       <select v-model="ordeEscollida" class="selector" aria-label="Filtrar por orde">
         <option value="">Todas as ordes</option>
@@ -81,6 +104,9 @@ const resultados = computed(() => {
           <span class="tarxeta__sci">{{ e.cientifico }}</span>
           <span class="tarxeta__meta">
             {{ e.familia }}
+            <span v-if="e.fenoloxia?.fiable" class="etiqueta etiqueta--fen">
+              {{ e.fenoloxia.estatus }}
+            </span>
             <span v-if="e.rara" class="etiqueta">rara</span>
           </span>
         </NuxtLink>
@@ -222,6 +248,12 @@ const resultados = computed(() => {
   color: #3a2f00;
   font-size: 0.7rem;
   font-weight: 600;
+}
+
+.etiqueta--fen {
+  background: color-mix(in srgb, var(--fento) 15%, transparent);
+  color: var(--fento);
+  text-transform: capitalize;
 }
 
 .baleiro {

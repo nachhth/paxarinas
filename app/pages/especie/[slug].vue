@@ -73,6 +73,12 @@ const outrosNomes = computed(() => {
       </dl>
     </section>
 
+    <section v-if="especie.nomes.gl" class="bloque">
+      <h2>Nome galego</h2>
+      <p class="nome-gl">{{ especie.nomes.gl }}</p>
+      <p class="fonte">Fonte: {{ especie.nomes.glFonte }}</p>
+    </section>
+
     <section v-if="outrosNomes.length" class="bloque">
       <h2>Noutros idiomas</h2>
       <dl class="datos">
@@ -81,6 +87,20 @@ const outrosNomes = computed(() => {
           <dd>{{ n.nome }}</dd>
         </template>
       </dl>
+    </section>
+
+    <section v-if="especie.fenoloxia && especie.fenoloxia.total" class="bloque">
+      <h2>Cando se ve</h2>
+      <p v-if="especie.fenoloxia.fiable" class="estatus">{{ especie.fenoloxia.estatus }}</p>
+      <p v-else class="estatus estatus--incerto">
+        Poucas citas para dicir en que época aparece.
+      </p>
+
+      <BarraMeses :fenoloxia="especie.fenoloxia" />
+
+      <p class="fonte">
+        {{ catalogo.avisoFenoloxia }}
+      </p>
     </section>
 
     <section class="bloque">
@@ -189,5 +209,26 @@ const outrosNomes = computed(() => {
 .fonte {
   font-size: 0.85rem;
   margin: 0.5rem 0 0;
+  color: var(--tinta-suave);
+}
+
+.nome-gl {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.estatus {
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  margin: 0 0 0.6rem;
+}
+
+.estatus--incerto {
+  font-size: 0.95rem;
+  font-weight: 400;
+  text-transform: none;
+  color: var(--tinta-suave);
 }
 </style>

@@ -33,9 +33,6 @@ export PAXARINAS_CONTACTO="o-teu-correo@exemplo.gal"
 
 python etl/gbif_especies.py    # especies, taxonomía e nomes (uns minutos)
 python etl/wikimedia_fotos.py  # fotos + autoría (~30 MB, uns 10 minutos)
-python etl/wikidata_nomes.py   # nomes galegos que GBIF non trae
-python etl/fenoloxia.py        # en que meses se ve cada especie
-python etl/valida_fenoloxia.py # comproba a clasificación fenolóxica
 python etl/build.py            # fusiona todo en data/especies.json
 ```
 

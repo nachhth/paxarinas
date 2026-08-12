@@ -1,5 +1,7 @@
 export interface Nomes {
   gl: string | null
+  /** De onde sae o nome galego: Catalogue of Life, Wikidata ou (algún día) a RAG. */
+  glFonte: string | null
   es: string | null
   en: string | null
   pt: string | null
@@ -21,6 +23,22 @@ export interface Foto {
   orixe: string | null
 }
 
+export type Estatus =
+  | 'residente' | 'estival' | 'invernante' | 'de paso' | 'escasa' | 'sen datos'
+
+/**
+ * `meses` é dato bruto: a porcentaxe das citas galegas que cae en cada mes,
+ * de xaneiro a decembro. `estatus` é a interpretación dese dato mediante unha
+ * heurística, non unha determinación experta — amósase sempre como estimación.
+ */
+export interface Fenoloxia {
+  estatus: Estatus
+  meses: number[]
+  total: number
+  /** false cando hai poucas citas para dicir nada (< 50). */
+  fiable: boolean
+}
+
 export interface Especie {
   slug: string
   cientifico: string
@@ -30,6 +48,7 @@ export interface Especie {
   xenero: string | null
   nomes: Nomes
   foto: Foto | null
+  fenoloxia: Fenoloxia | null
   /** Nº de ocorrencias rexistradas en GBIF para Galicia. Serve de proxy de abundancia. */
   citas: number
   /** Menos de 10 citas: divagante, escapada de catividade ou erro de identificación. */
@@ -40,6 +59,7 @@ export interface Especie {
 export interface Catalogo {
   version: number
   fontes: string[]
+  avisoFenoloxia: string
   total: number
   especies: Especie[]
 }

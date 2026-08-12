@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import http.client
 import json
+import os
 import re
 import sys
 import time
@@ -22,7 +23,24 @@ ETL_DIR = Path(__file__).resolve().parent
 CACHE_DIR = ETL_DIR / ".cache"
 OUT_DIR = ETL_DIR / "out"
 
-import os
+def _carga_env() -> None:
+    """Le o .env da raíz sen dependencias externas.
+
+    As variables xa definidas no contorno teñen prioridade, para poder
+    sobrescribir puntualmente sen tocar o ficheiro.
+    """
+    ficheiro = ETL_DIR.parent / ".env"
+    if not ficheiro.exists():
+        return
+    for liña in ficheiro.read_text(encoding="utf-8").splitlines():
+        liña = liña.strip()
+        if not liña or liña.startswith("#") or "=" not in liña:
+            continue
+        clave, valor = liña.split("=", 1)
+        os.environ.setdefault(clave.strip(), valor.strip().strip("\"'"))
+
+
+_carga_env()
 
 # Wikimedia esixe un User-Agent descritivo cun contacto real, e bloquea os
 # xenéricos. Configúrase con PAXARINAS_CONTACTO (un correo ou unha URL).
