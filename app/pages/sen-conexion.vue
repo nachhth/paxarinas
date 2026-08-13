@@ -10,7 +10,10 @@ const {
 } = useDescargaOffline(catalogo.especies)
 
 const fotos = computed(() => catalogo.especies.filter(e => e.foto).length)
-const cantos = computed(() => catalogo.especies.filter(e => e.canto).length)
+// Conta ficheiros, non especies: cada especie pode ter canto e reclamo, e este
+// número ten que cadrar cos que baixa `useDescargaOffline`.
+const cantos = computed(() =>
+  catalogo.especies.reduce((n, e) => n + e.cantos.length, 0))
 
 const usado = ref<number | null>(null)
 

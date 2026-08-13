@@ -1,6 +1,6 @@
 # Estado del proyecto — punto de partida para una sesión nueva
 
-Actualizado: 12 de agosto de 2026.
+Actualizado: 13 de agosto de 2026.
 
 Lee también [DESEÑO.md](../DESEÑO.md) (decisiones técnicas y roadmap) y
 [README.md](../README.md) (cómo arrancar). Este documento es el contexto que no
@@ -21,15 +21,17 @@ tecnología. Cualquier decisión que la debilite va en contra del proyecto.
 
 | Métrica | Valor |
 |---|---|
-| Especies con citas en Galicia | 517 (393 habituales + 125 raras/divagantes) |
-| Con nombre gallego | 450 (87%) — 331 de Catalogue of Life, 119 de Wikidata |
-| Con foto | 506 (98%), de Wikimedia Commons con autoría y licencia |
-| Con fenología fiable | 313 (61%) |
-| Con canto | 374 (72%) |
-| Familias | 79 |
+| Especies con citas en Galicia | 518 (393 habituales + 125 raras/divagantes) |
+| Con nombre gallego | 451 (87%) — 332 de Catalogue of Life, 119 de Wikidata |
+| Con foto | 510 (98%), de Wikimedia Commons con autoría y licencia |
+| Con fenología fiable | 314 (61%) |
+| Con grabación | 379 (73%) — canto y reclamo, 737 ficheros |
+| Con grupos de plumaje en la galería | 94 (18%) |
+| Familias | 80 |
 | Comarcas con aves contadas | 53 (204 especies de media) |
-| Catálogo | 477 kB · Zonas: 188 kB · Fotos: 34,5 MB · Cantos: 15,1 MB |
-| Despliegue generado | 1942 ficheros, 56,5 MB |
+| Catálogo | 990 kB · Zonas: 233 kB · Fotos: 34,8 MB · Grabaciones: 29,6 MB |
+| Despliegue generado | 2844 ficheros, 132,4 MB (incluye los 49 MB del modelo) |
+| Precache de la PWA | 18,3 MB — ni las grabaciones ni el modelo entran ahí |
 
 Rutas: `/` catálogo · `/identificar` guiada · `/escoitar` por sonido ·
 `/mapa` comarcas · `/vistas` lista personal · `/creditos` · `/sen-conexion`.
@@ -147,6 +149,33 @@ pulsar y no solas, porque Wikimedia dice que enlazar directamente a sus imágene
 "es posible, pero no está recomendado". Las obligaciones de licencia siguen
 intactas aunque no alojemos el fichero, así que cada foto muestra su autoría.
 
+**La galería separa por sexo y plumaje en 94 especies** (`commons_sexos.py`,
+etapa que va justo detrás de `commons_galeria.py` y nunca antes: escriben sobre
+los mismos ficheros). Como esa separación solo se ve tras pulsar "ver máis
+fotos", la ficha lleva además un aviso que la anuncia — y para eso los grupos
+están también en `especies.json`, no solo en el JSON de la galería: así el aviso
+se renderiza en servidor y no cuesta ni una petición.
+
+El aviso dice **"Hai fotos de macho, femia e xuvenís"** y no "el macho y la
+hembra no se parecen". Que Commons tenga subcategorías separadas *sugiere*
+dimorfismo, pero no lo demuestra, y en una guía de identificación afirmar que
+dos plumajes difieren cuando quizá no lo hagan lleva a descartar la especie
+correcta.
+
+**Hay un aviso de errores en cada ficha** (`AvisarErro.vue`), que abre una
+issue de GitHub prerrellenada en una pestaña nueva. Buena parte del contenido
+sale de heurísticas —qué foto es del pájaro, en qué meses se ve, si un nombre de
+Wikidata es gallego de verdad— y todas fallan de vez en cuando. **No hay
+contacto por correo y es deliberado**: un `mailto` en 517 páginas estáticas es
+una dirección servida en bandeja a los rastreadores de spam, y además el autor
+no quiere el suyo publicado. Si algún día hace falta una segunda vía, que sea un
+alias dedicado o un formulario.
+
+**`robots.txt` y `sitemap.xml`** se generan como rutas prerenderizadas desde
+`runtimeConfig.public.sitio`. El dominio por defecto es `paxarinas.vercel.app`;
+cuando llegue el definitivo hay que poner `NUXT_PUBLIC_SITIO` en Vercel, no
+tocar el código.
+
 ## Identificación por sonido: `/escoitar`
 
 BirdNET GLOBAL 6K v2.4 corriendo **en el dispositivo**, sin servidor. El sonido
@@ -180,9 +209,13 @@ los 7,1 del espejo. El filtro por lista gallega y mes hace el mismo trabajo por
 
 ## El ETL se ejecuta con un solo comando, y deja fecha
 
-`python etl/todo.py` corre las doce etapas en orden. Admite `--rapido` (salta
+`python etl/todo.py` corre las trece etapas en orden. Admite `--rapido` (salta
 fotos y cantos, que son las lentas), `--so <etapa>` y `--desde <etapa>`. Si una
 fuente falla sigue —son independientes— salvo GBIF, que es la base de todo.
+
+Los recuentos de las etapas y los del catálogo cuadran (518 taxones, 393
+habituales). Si algún día dejan de cuadrar, el sospechoso es el filtro
+taxonómico de `build.py`: ver más abajo.
 
 Cada ejecución escribe `etl/out/rexistro.json` con la fecha y el recuento de
 cada fuente, **con fecha por fuente y no solo global**: una ejecución parcial
@@ -283,7 +316,7 @@ Nuxt genera en `.nuxt/`.
 | Wikipedia gl/es | Descripción de 493 especies (443 en gallego) | ✔ CC BY-SA |
 | UICN vía Wikidata | Estado de conservación de 479, 32 amenazadas | ✔ Sin clave |
 | eBird | Checklist regional (500 spp), 1720 hotspots | Clave en `.env` |
-| xeno-canto | 374 cantos con autoría | Clave en `.env` |
+| xeno-canto | 737 grabaciones (canto y reclamo) de 379 especies | Clave en `.env` |
 | RAG | Nomenclatura normativa | ⚠️ Pendiente de permiso |
 
 **eBird no sirve para fenología**: su API 2.0 está pensado para observaciones
@@ -318,17 +351,88 @@ provincia de cada una viene de Wikidata por el QID que OSM ya trae en las
 etiquetas, con un respaldo por coordenadas contra GADM: hay alguna comarca que
 en Wikidata cuelga de Galicia y no de su provincia.
 
+**Cada especie tiene dos grabaciones: canto y reclamo.** Son sonidos distintos
+y a menudo no se parecen en nada; el reclamo es lo que más se oye en el monte y
+el canto lo que identifica la especie. Se buscan por separado (`type:song` y
+`type:call`), cada uno con su propia cascada geográfica.
+
+Antes se guardaba **una sola** grabación por especie y ganaba la más cercana
+fuese del tipo que fuese. Así el merlo rubio (*Monticola saxatilis*) quedó
+representado por un grito de alarma: el sonido que da cuando se asusta, no el
+que canta. Se detectó probando el identificador contra los altavoces — con ese
+clip, ni alimentando el fichero directamente al modelo se acertaba (puesto 2,
+37%, ganando el cernícalo). El 40% del catálogo estaba así.
+
+**Los reclamos no identifican peor que los cantos**, y conviene no repetir esa
+suposición: en la validación aciertan 19/24 frente a 11/16 de los cantos. Lo que
+falla son las especies que apenas vocalizan o que suenan igual que su hermana
+—buitres, ánsares, limícolas, rapaces—, no el tipo de grabación. El segundo clip
+se añadió para el oído del usuario, no para subir el acierto del modelo.
+
 **Los cantos se eligen por proximidad geográfica antes que por calidad.** Hay
 subespecies con voces distintas — el paporrubio canario sin ir más lejos — así
 que una grabación de Tenerife no vale en una guía gallega. La búsqueda cascadea:
-Galicia y entorno → noroeste ibérico → España → cualquier lugar. Todas las
-especies comunes acaban con grabación local; las 147 remotas son nórdicas y
-divagantes nunca grabadas en Iberia.
+Galicia y entorno → noroeste ibérico → España → cualquier lugar, y como último
+recurso repite sin exigir calidad A. Todas las especies comunes acaban con
+grabación local; las remotas son nórdicas y divagantes nunca grabadas en Iberia.
+
+**Las 712 grabaciones están auditadas contra el propio modelo** (script en
+`scratchpad`, no versionado todavía): se le pasa cada clip a BirdNET y se mira si
+la especie que dice representar aparece siquiera. No prueba el identificador,
+prueba el **contenido**. Sobre las 712: el canto acierta en el puesto 1 el
+**83%** de las veces y el reclamo el **78%**.
+
+Contra las **mismas 40 especies** que medía el spike, que es la única
+comparación honesta —el 83% sale de una muestra mucho mayor y más fácil—:
+
+| | top-1 |
+|---|---|
+| Sistema viejo, un clip por especie | 30/40 (75%) |
+| Nuevo, solo el clip de canto | 32/37 (86%) |
+| Nuevo, solo el clip de reclamo | 30/40 (75%) |
+| **Nuevo, el mejor de los dos** | **38/40 (95%)** |
+
+Tener las dos voces es lo que sube el listón: la especie que falla en una casi
+siempre acierta en la otra.
+
+Quedan **17 clips sospechosos** (2,4%), donde otra especie domina la grabación
+con más del 50% y la propia ni aparece. Dos patrones:
+
+- **Especies que apenas cantan.** El "song" del ferreiriño rabilongo, grabado en
+  Kent, BirdNET lo lee como tordo común al 66%. Forzar una plaza de canto a un
+  pájaro que no canta trae una grabación en la que manda el vecino.
+- **Grabaciones de cautividad.** El reclamo del águila real sale de un
+  **zoológico de Japón** (`type: "call, zoo collection"`). No debería entrar en
+  una guía gallega, y hoy nada lo impide.
+
+La lista completa está en el barrido; es la mejor pista que hay para mejorar el
+contenido sin escuchar 737 ficheros a mano.
+
+**El ETL renombra en local antes de descargar.** Al partir en dos plazas
+cambiaron todos los nombres de fichero (`merlo.opus` → `merlo-canto.opus`); si
+la grabación elegida sigue siendo la misma se renombra en vez de volver a
+pedírsela a xeno-canto, que lo mantiene gente voluntaria. Y se borran los `.opus`
+huérfanos, o el repositorio acumularía los nombres viejos para siempre.
 
 **Se descartan las licencias ND.** Recortar a 15 s y recodificar a Opus crea una
 obra derivada, y esas licencias no lo permiten. Requiere `ffmpeg`; tras
 instalarlo, las consolas ya abiertas siguen con el PATH viejo, y para eso está
 `PAXARINAS_FFMPEG`.
+
+**El filtro taxonómico de `build.py` admite `DOUBTFUL`, no solo `ACCEPTED`.**
+Descartar todo lo que no fuera `ACCEPTED` dejaba fuera del catálogo al
+**ferreiriño rabilongo (*Aegithalos caudatus*), con 19.147 citas**, de los
+pájaros más comunes de Galicia: GBIF marca ese nombre como dudoso. `DOUBTFUL`
+es una duda sobre el **nombre**, no sobre que el pájaro esté ahí. Un `SYNONYM`
+sí hay que descartarlo — sería la misma especie dos veces.
+
+Lo grave era el silencio. El resto del ETL no aplica ese filtro, así que
+descargaba su foto, su canto y su galería, quedaban en el repositorio y no se
+mostraban en ninguna parte; y como `galegas.json` sale del catálogo, **el
+identificador por sonido tampoco podía sugerirlo nunca**. Por eso ahora el log
+lista por nombre las que admite como dudosas: si algún día entra una que no
+debía, se ve. Apareció revisando este documento, porque las etapas contaban 393
+especies habituales y el catálogo 392.
 
 **Wikidata mete falsos positivos**: cuando una especie no tiene nombre popular
 en gallego, `rdfs:label` devuelve el propio nombre científico. Se filtran 27 así.
@@ -362,12 +466,10 @@ Es lo primero que debería revisar la SGO si colabora.
    250 filas sin virtualizar, y las comarcas pequeñas del interior son difíciles
    de acertar con el dedo (por eso hay también un selector). Falta comprobar que
    la geolocalización se comporta con permiso denegado y bajo techo.
-2. **Spike de BirdNET en el navegador** — la única incógnita que puede obligar
-   a cambiar de arquitectura. Si la inferencia no rinde en un móvil real, hay
-   que envolver con Capacitor y publicar en tiendas. Mejor saberlo pronto.
-3. **Identificación guiada** — figura como v1 en el diseño pero la dejaría para
-   después: necesita rasgos (tamaño, color, hábitat) que no están en ninguna
-   fuente abierta decente y habría que curarlos a mano.
+2. **Probar `/escoitar` en el monte.** Funciona en pruebas de laboratorio y con
+   altavoces, pero no se ha usado todavía con un pájaro de verdad cantando.
+3. **El color**, que sigue siendo el hueco más grande de la identificación
+   guiada (ver más abajo). Aplazado a propósito.
 
 ## Pendiente fuera del código
 
@@ -400,7 +502,14 @@ python etl/valida_fenoloxia.py         # regresiones de la clasificación
 python etl/xenocanto_cantos.py         # cantos (~40 min, 15 MB, necesita ffmpeg)
 python etl/zonas.py                    # comarcas y sus aves (~5 min)
 python etl/build.py                    # fusiona todo → data/especies.json + zonas.json
+node etl/birdnet/xerar_galegas.mjs     # lista gallega de BirdNET (public/birdnet/galegas.json)
 ```
+
+**`xerar_galegas.mjs` no está en `todo.py`** y se olvida con facilidad. Se
+genera cruzando el catálogo con las 6.522 clases de BirdNET, así que **cada vez
+que entra o sale una especie del catálogo hay que reejecutarlo**, o el
+identificador seguirá con la lista vieja. Es de las pocas etapas en Node y por
+eso quedó fuera del orquestador, que es Python.
 
 Las credenciales van en `.env` (fuera del repositorio; ver `.env.example`).
 Los ETL cachean en `etl/.cache/` y saltan lo ya descargado, así que se pueden

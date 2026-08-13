@@ -46,6 +46,9 @@ export interface Fenoloxia {
   fiable: boolean
 }
 
+/** Que representa a gravación. Ver `PRAZAS` en `etl/xenocanto_cantos.py`. */
+export type PrazaCanto = 'canto' | 'reclamo'
+
 /**
  * Gravación de xeno-canto, recortada a 15 s e recodificada a Opus. Como coas
  * fotos, a atribución vai pegada ao recurso. `lugar` e `pais` importan: moitas
@@ -53,6 +56,12 @@ export interface Fenoloxia {
  * saíu a gravación.
  */
 export interface Canto {
+  /**
+   * Canto ou reclamo. Non se deduce de `tipo`: iso é texto libre de quen
+   * gravou ("alarm call, call", "song, subsong"), e é o ETL quen decide en que
+   * praza entra cada gravación.
+   */
+  praza: PrazaCanto
   ficheiro: string
   autor: string | null
   licenza: string | null
@@ -157,7 +166,8 @@ export interface Especie {
   xenero: string | null
   nomes: Nomes
   foto: Foto | null
-  canto: Canto | null
+  /** Canto e reclamo, por esa orde. Baleiro se non hai ningunha gravación. */
+  cantos: Canto[]
   rasgos: Rasgos | null
   descricion: Descricion | null
   conservacion: Conservacion | null

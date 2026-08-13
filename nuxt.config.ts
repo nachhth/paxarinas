@@ -116,6 +116,55 @@ export default defineNuxtConfig({
   },
 
   nitro: {
+    /**
+     * Cabeceiras de seguridade. Van aquí e non nun `vercel.json` para que
+     * `nuxt preview` se comporte coma o despregue: unha CSP que só existe en
+     * produción é unha CSP que se descobre rota en produción.
+     *
+     * O que a CSP SI fai aquí: acotar a onde pode falar a app. `connect-src
+     * 'self'` e `img-src` cos dous dominios de Wikimedia significan que ningún
+     * script inxectado podería mandar a ningures nin as marcas de aves nin a
+     * posición; `frame-ancestors 'none'` impide que a app se embeba nun iframe
+     * alleo, que con permisos de micrófono e localización non é un detalle.
+     *
+     * O que NON fai: `script-src` leva `'unsafe-inline'` porque Nuxt inxecta a
+     * configuración e o importmap en scripts en liña, e o hash cambia con cada
+     * `buildId`. Con `'unsafe-inline'` un `javascript:` nun href seguiría
+     * executando, así que a defensa contra iso é `ligazon()` no sitio onde se
+     * pinta, non esta cabeceira. Se algún día se poden eliminar eses dous
+     * scripts en liña, quítese aquí tamén e a CSP pasa a valer o dobre.
+     *
+     * `style-src` precisa `'unsafe-inline'` de por vida: os `:style` de Vue
+     * (as barras de progreso, a opacidade das comarcas, a bandada) son
+     * atributos en liña.
+     */
+    routeRules: {
+      '/**': {
+        headers: {
+          'content-security-policy': [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline'",
+            "style-src 'self' 'unsafe-inline'",
+            // Commons serve as fotos da galería desde upload.wikimedia.org.
+            "img-src 'self' data: https://upload.wikimedia.org",
+            "media-src 'self'",
+            "connect-src 'self'",
+            "worker-src 'self'",
+            "manifest-src 'self'",
+            "base-uri 'none'",
+            "object-src 'none'",
+            "form-action 'none'",
+            "frame-ancestors 'none'",
+          ].join('; '),
+          // A app pide micrófono (identificar polo son) e localización (a túa
+          // comarca). Aquí conténse a si mesma: só para ela e para nada máis.
+          'permissions-policy': 'geolocation=(self), microphone=(self), camera=(), payment=(), usb=()',
+          'referrer-policy': 'strict-origin-when-cross-origin',
+          'x-content-type-options': 'nosniff',
+        },
+      },
+    },
+
     prerender: {
       crawlLinks: true,
       // O mapa e o robots non están enlazados desde ningunha páxina, así que o

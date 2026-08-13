@@ -58,13 +58,20 @@ def carga_fenoloxia() -> dict[str, dict]:
     return json.loads(ficheiro.read_text(encoding="utf-8"))["fenoloxia"]
 
 
-def carga_cantos() -> dict[str, dict]:
-    """Gravacións de xeno-canto, coa súa autoría e procedencia."""
+def carga_cantos() -> dict[str, list[dict]]:
+    """Gravacións de xeno-canto, coa súa autoría e procedencia.
+
+    Cada especie ten unha lista: o canto e o reclamo. Admítese tamén a saída do
+    formato vello (un só dicionario por especie) para que un `build` non falle
+    mentres a descarga de xeno-canto vai pola metade.
+    """
     ficheiro = OUT_DIR / "xenocanto_cantos.json"
     if not ficheiro.exists():
         log("Aviso: sen xenocanto_cantos.json. O catálogo sairá sen cantos.")
         return {}
-    return json.loads(ficheiro.read_text(encoding="utf-8"))["cantos"]
+    cru = json.loads(ficheiro.read_text(encoding="utf-8"))["cantos"]
+    return {sci: (v if isinstance(v, list) else [{**v, "praza": "canto"}])
+            for sci, v in cru.items()}
 
 
 def carga_rexistro() -> dict:
@@ -287,12 +294,31 @@ def main() -> None:
 
     catalogo = []
     sen_aceptar = 0
+    dubidosas: list[str] = []
     slugs_vistos: set[str] = set()
 
     for e in bruto["especies"]:
-        if e.get("estadoTaxonomico") != "ACCEPTED":
+        # DOUBTFUL entra; SYNONYM e compañía non.
+        #
+        # Este filtro deixaba fóra o ferreiriño rabilongo (*Aegithalos
+        # caudatus*), con 19.147 citas en Galicia: dos máis comúns que hai. En
+        # GBIF, DOUBTFUL é unha dúbida sobre o **nome**, non sobre que o paxaro
+        # estea aí, e nunha guía galega non pode faltar por unha discusión
+        # taxonómica. Un SYNONYM si hai que descartalo: sería a mesma especie
+        # dúas veces con nomes distintos.
+        #
+        # O silencio era o peor do asunto. O resto do ETL non aplica este filtro,
+        # así que baixaba a foto, o canto e a galería desa especie, quedaban no
+        # repositorio e non se amosaban en ningures. E como `galegas.json` sae do
+        # catálogo, o identificador por son tampouco a podía suxerir nunca.
+        # Por iso agora se listan: se algún día entra unha dubidosa que non
+        # debía, vese no log en vez de aparecer calada na web.
+        estado = e.get("estadoTaxonomico")
+        if estado not in ("ACCEPTED", "DOUBTFUL"):
             sen_aceptar += 1
             continue
+        if estado == "DOUBTFUL":
+            dubidosas.append(e.get("nomeCientifico") or "?")
 
         sci = e["nomeCientifico"]
         if not sci:
@@ -305,7 +331,7 @@ def main() -> None:
 
         vern = e.get("vernaculos", {})
         foto = fotos.get(sci)
-        canto = cantos.get(sci)
+        clips = cantos.get(sci, [])
 
         # Catalogue of Life (vía GBIF) manda; Wikidata só enche os ocos. Cando
         # chegue a lista normativa da RAG, entrará por diante das dúas.
@@ -342,15 +368,19 @@ def main() -> None:
                 "orixe": foto["orixe"],
             } if foto else None,
             # Igual que coas fotos: a atribución viaxa coa gravación.
-            "canto": {
-                "ficheiro": canto["ficheiro"],
-                "autor": canto["autor"],
-                "licenza": canto["licenza"],
-                "orixe": canto["orixe"],
-                "lugar": canto["lugar"],
-                "pais": canto["pais"],
-                "tipo": canto["tipo"],
-            } if canto else None,
+            # Os campos internos do ETL (id de xeno-canto, ámbito no que se
+            # atopou) quedan fóra: non se amosan e o catálogo vai enteiro no
+            # bundle de todas as páxinas.
+            "cantos": [{
+                "praza": c["praza"],
+                "ficheiro": c["ficheiro"],
+                "autor": c["autor"],
+                "licenza": c["licenza"],
+                "orixe": c["orixe"],
+                "lugar": c["lugar"],
+                "pais": c["pais"],
+                "tipo": c["tipo"],
+            } for c in clips],
             # Sen isto non se pode buscar sen saber o nome, que é o uso real
             # da app: alguén ve un paxaro e quere chegar a el.
             "rasgos": rasgos.get(sci),
@@ -406,8 +436,12 @@ def main() -> None:
     log(f"  con foto:        {con_foto} ({con_foto / len(catalogo):.0%})")
     con_fen = sum(1 for e in catalogo if (e["fenoloxia"] or {}).get("fiable"))
     log(f"  con fenoloxía fiable: {con_fen} ({con_fen / len(catalogo):.0%})")
-    con_canto = sum(1 for e in catalogo if e["canto"])
-    log(f"  con canto:       {con_canto} ({con_canto / len(catalogo):.0%})")
+    con_son = sum(1 for e in catalogo if e["cantos"])
+    con_canto = sum(1 for e in catalogo if any(c["praza"] == "canto" for c in e["cantos"]))
+    con_reclamo = sum(1 for e in catalogo if any(c["praza"] == "reclamo" for c in e["cantos"]))
+    log(f"  con son:         {con_son} ({con_son / len(catalogo):.0%})")
+    log(f"    canto:         {con_canto}")
+    log(f"    reclamo:       {con_reclamo}")
     con_rasgos = sum(1 for e in catalogo if e["rasgos"])
     log(f"  con rasgos:      {con_rasgos} ({con_rasgos / len(catalogo):.0%})")
     log(f"  con parecidas:   {con_parecidas} ({con_parecidas / len(catalogo):.0%})")
@@ -420,6 +454,10 @@ def main() -> None:
     log(f"  con estado UICN: {con_estado} ({con_estado / len(catalogo):.0%}), "
         f"{ameazadas} ameazadas")
     log(f"  descartadas por taxonomía non aceptada: {sen_aceptar}")
+    if dubidosas:
+        log(f"  admitidas con nome dubidoso (DOUBTFUL): {len(dubidosas)}")
+        for nome in sorted(dubidosas):
+            log(f"    - {nome}")
     log(f"\nEscrito en {DESTINO.relative_to(RAIZ)}")
 
     constrúe_zonas(catalogo)

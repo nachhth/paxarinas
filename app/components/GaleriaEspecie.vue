@@ -153,11 +153,15 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
         <ul class="grella">
           <li v-for="(f, i) in s.fotos" :key="f.url" :style="{ '--i': i }">
             <button type="button" class="lupa" @click="abre(indice.get(f) ?? 0)">
+              <!-- `referrerpolicy`: estas son as únicas imaxes da app que se
+                   piden a un terceiro. Sen isto, Commons recibe a URL completa
+                   da ficha e sabe que paxaro está a mirar cada quen. -->
               <img
                 :src="f.url"
                 :alt="`${nome}${etiqueta(f) ? ` (${etiqueta(f)?.toLowerCase()})` : ''} — fotografía de ${f.autor ?? 'autoría descoñecida'}`"
                 loading="lazy"
                 decoding="async"
+                referrerpolicy="no-referrer"
               >
               <span class="só-lectores">Ampliar</span>
             </button>
@@ -205,6 +209,7 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
           <img
             :src="foto.urlGrande ?? foto.url"
             :alt="`${nome}${etiqueta(foto) ? ` (${etiqueta(foto)?.toLowerCase()})` : ''} — fotografía de ${foto.autor ?? 'autoría descoñecida'}`"
+            referrerpolicy="no-referrer"
           >
           <figcaption>
             <strong v-if="etiqueta(foto)" class="visor__plumaxe">

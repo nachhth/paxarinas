@@ -134,13 +134,17 @@ export function useBirdnet() {
     if (traballador) return
     traballador = new Worker('/birdnet/worker.js')
     traballador.onmessage = ({ data }) => {
+      // Estes dous son avisos de avance, non respostas: non levan `id` nin
+      // pechan ningunha petición.
       if (data.tipo === 'progreso') { progreso.value = data.valor; return }
       if (data.tipo === 'bytes') { bytesBaixados.value = data.bytes; return }
-      // O worker responde en orde; a cola só ten unha petición viva de cada vez.
-      const primeiro = agardando.keys().next()
-      if (primeiro.done) return
-      const p = agardando.get(primeiro.value)!
-      agardando.delete(primeiro.value)
+      // Cada resposta devolve o `id` da súa petición. Antes resolvíase sempre a
+      // máis antiga da cola, contando con que só houbese unha viva; era certo,
+      // pero non estaba garantido por nada, e o día que deixase de selo as
+      // respostas cruzaríanse en silencio.
+      const p = agardando.get(data.id)
+      if (!p) return
+      agardando.delete(data.id)
       if (data.tipo === 'erro') p.reject(Object.assign(new Error(data.mensaxe), { codigo: data.codigo }))
       else p.resolve(data)
     }
@@ -380,6 +384,13 @@ export function useBirdnet() {
     pista?.getTracks().forEach(t => t.stop())
     traballador?.terminate()
     traballador = null
+    // Ao terminar o worker ninguén vai responder xa: sen isto, unha análise a
+    // medio facer deixaba a promesa colgada para sempre e con ela todo o que
+    // agardase por ela.
+    for (const [id, p] of agardando) {
+      agardando.delete(id)
+      p.reject(new Error('a análise cancelouse ao saír da páxina'))
+    }
   })
 
   return {

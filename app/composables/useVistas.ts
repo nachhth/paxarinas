@@ -40,7 +40,13 @@ function carga() {
     if (!cru) return
     const datos = JSON.parse(cru)
     if (Array.isArray(datos)) {
-      vistas.value = datos.filter(v => v && typeof v.slug === 'string')
+      // Compróbase tamén a data e non só o slug: quen consome isto ordena por
+      // `data.localeCompare(...)` —a listaxe e mais o CSV—, así que unha
+      // entrada sen data non daba unha marca rara, tumbaba a páxina enteira
+      // cun TypeError. O que hai aquí escríbeo a app, pero tamén o pode tocar
+      // calquera desde a consola, e o formato pode cambiar algún día.
+      vistas.value = datos.filter(v =>
+        v && typeof v.slug === 'string' && typeof v.data === 'string')
     }
   } catch {
     // Se o que hai gardado non se pode ler, mellor empezar baleiro que romper.

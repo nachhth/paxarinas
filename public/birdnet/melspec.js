@@ -32,7 +32,15 @@
  *      do inicializador;
  *   6. as bandas mel van invertidas (`tf.reverse`) e os eixos transpostos.
  *
- * `medir_melspec.mjs` compara esta implementación coa oficial en TensorFlow.js.
+ * Non se toca isto sen pasar despois:
+ *
+ *     cd spike/birdnet && npm install && node comparar-melspec.mjs
+ *
+ * que executa a `MelSpecLayerSimple` oficial en TensorFlow.js e contrasta as
+ * dúas saídas. É a única rede de seguridade que hai aquí: os seis puntos de
+ * arriba non fallan cun erro nin cun NaN, fallan cunha predición distinta.
+ * Ao seu carón, `diagnose-melspec.mjs` di de onde vén a diferenza que queda e
+ * `validar-limpo.mjs` comproba que 40 cantos reais seguen no mesmo posto.
  *
  * Parámetros e bancos de filtros: BirdNET GLOBAL 6K v2.4 (Kahl et al.),
  * CC BY-NC-SA 4.0. Este código: a licenza do proxecto.

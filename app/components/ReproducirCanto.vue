@@ -1,27 +1,45 @@
 <script setup lang="ts">
 import type { Canto } from '~/types/catalogo'
 
-defineProps<{ canto: Canto; especie: string }>()
+const props = defineProps<{ canto: Canto; especie: string }>()
 
-/** O tipo vén etiquetado en inglés por quen gravou. */
-const TIPOS: Record<string, string> = {
-  song: 'canto',
-  call: 'reclamo',
+/**
+ * Termos concretos, en inglés, tal e como os etiqueta quen grava en xeno-canto.
+ * Só están os que din algo que a praza non diga xa: que un `song` é un canto xa
+ * o sabemos por estar na praza do canto.
+ */
+const MATICES: Record<string, string> = {
   'alarm call': 'reclamo de alarma',
   'flight call': 'reclamo en voo',
   'begging call': 'reclamo de pedinchada',
+  'nocturnal flight call': 'reclamo nocturno',
   drumming: 'tamborileo',
+  subsong: 'canto en baixo',
 }
 
-function tipoEnGalego(tipo: string | null) {
-  if (!tipo) return 'gravación'
-  return TIPOS[tipo.toLowerCase().trim()] ?? tipo
-}
+const XENERICO: Record<string, string> = { canto: 'canto', reclamo: 'reclamo' }
+
+/**
+ * Como se lle chama a esta gravación.
+ *
+ * O campo `tipo` é texto libre e vén moitas veces en lista ("alarm call,
+ * call"), así que non se pode buscar tal cal nun mapa: antes saía en inglés e
+ * con comas na ficha. Pártese, e se algún termo engade matiz úsase ese; se non,
+ * abonda co nome da praza.
+ */
+const etiqueta = computed(() => {
+  const termos = (props.canto.tipo ?? '')
+    .toLowerCase().split(',').map(t => t.trim()).filter(Boolean)
+  for (const t of termos) {
+    if (MATICES[t]) return MATICES[t]
+  }
+  return XENERICO[props.canto.praza] ?? 'gravación'
+})
 </script>
 
 <template>
   <div>
-    <p class="tipo">{{ tipoEnGalego(canto.tipo) }}</p>
+    <p class="tipo">{{ etiqueta }}</p>
 
     <!-- Controis nativos a propósito: son accesibles de serie e non hai que
          manter unha barra de progreso propia para 15 segundos de audio. -->
@@ -30,7 +48,7 @@ function tipoEnGalego(tipo: string | null) {
       controls
       preload="none"
       :src="canto.ficheiro"
-      :aria-label="`Gravación de ${especie}`"
+      :aria-label="`${etiqueta} de ${especie}`"
     />
 
     <p class="credito">

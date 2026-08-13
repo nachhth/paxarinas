@@ -45,6 +45,11 @@ async function cargar (backendPedido) {
   const fetchOrixinal = self.fetch
   self.fetch = async (...args) => {
     const r = await fetchOrixinal(...args)
+    // `Response` só admite estados 200-599: cun 0 (resposta opaca) ou un 204
+    // lanzaría un RangeError no medio da carga, e o erro que vería a persoa
+    // sería ese e non o de rede que o causou. Nese caso non se conta e
+    // devólvese a resposta tal cal, que é o que importa.
+    if (r.status < 200 || r.status > 599) return r
     const buf = await r.clone().arrayBuffer()
     bytesRede += buf.byteLength
     postMessage({ tipo: 'bytes', bytes: bytesRede })
@@ -136,14 +141,18 @@ async function predicir (pcm) {
   }
 }
 
+// Todas as respostas devolven o `id` da petición que as pediu: é o que lle
+// permite a `useBirdnet.ts` casar cada unha coa súa promesa. Os avisos de
+// `progreso` e `bytes` non o levan a propósito, porque non pechan nada.
 onmessage = async ({ data }) => {
+  const id = data.id
   try {
     if (data.tipo === 'cargar') {
-      postMessage({ tipo: 'cargado', traza: await cargar(data.backend) })
+      postMessage({ tipo: 'cargado', id, traza: await cargar(data.backend) })
 
     } else if (data.tipo === 'predicir') {
       const r = await predicir(data.pcm)
-      postMessage({ tipo: 'prediccion', ...r }, [r.puntuacions.buffer])
+      postMessage({ tipo: 'prediccion', id, ...r }, [r.puntuacions.buffer])
 
     } else if (data.tipo === 'benchmark') {
       const { repeticions = 10, fragmentos = 1 } = data
@@ -157,9 +166,9 @@ onmessage = async ({ data }) => {
         const x = await predicir(ruido)
         tempos.push({ total: performance.now() - t, espectro: x.msEspectro, modelo: x.msModelo })
       }
-      postMessage({ tipo: 'benchmark', tempos, fragmentos, tensores: tf.memory().numBytes })
+      postMessage({ tipo: 'benchmark', id, tempos, fragmentos, tensores: tf.memory().numBytes })
     }
   } catch (e) {
-    postMessage({ tipo: 'erro', codigo: e.codigo || 'erro', mensaxe: e.message })
+    postMessage({ tipo: 'erro', id, codigo: e.codigo || 'erro', mensaxe: e.message })
   }
 }

@@ -159,8 +159,12 @@ async function aoGravar() {
       </section>
 
       <!-- ─── Gravación ─────────────────────────────────────────────────────── -->
+      <!-- `erro` tamén queda fóra, e non só os estados previos: se o modelo non
+           cargou, aquí non hai nada que gravar. Amosábase o bloque enteiro co
+           botón inhabilitado debaixo do «Primeiro hai que baixar o modelo», e o
+           mesmo erro pintábase dúas veces, unha en cada sección. -->
       <section
-        v-if="!['inicial', 'sen-modelo', 'cargando'].includes(estado)"
+        v-if="!['inicial', 'sen-modelo', 'cargando', 'erro'].includes(estado)"
         class="bloque"
       >
         <h2>Gravar</h2>

@@ -136,10 +136,14 @@ const outrosNomes = computed(() => {
     <section v-if="especie.descricion" class="bloque">
       <h2>Que é</h2>
       <p class="descricion">{{ especie.descricion.texto }}</p>
+      <!-- A URL constrúea o ETL cun dominio fixo, así que non debería facer
+           falta; pasa por `ligazon` igual, que é a regra en toda a app: ningún
+           `href` que veña do catálogo se pinta sen comprobar o esquema. -->
       <p class="fonte">
-        <a :href="especie.descricion.url">
+        <a v-if="ligazon(especie.descricion.url)" :href="ligazon(especie.descricion.url)!">
           Wikipedia en {{ especie.descricion.idioma === 'gl' ? 'galego' : 'castelán' }}
-        </a>, CC BY-SA.
+        </a>
+        <span v-else>Wikipedia en {{ especie.descricion.idioma === 'gl' ? 'galego' : 'castelán' }}</span>, CC BY-SA.
       </p>
     </section>
 
@@ -243,9 +247,17 @@ const outrosNomes = computed(() => {
       </dl>
     </section>
 
-    <section v-if="especie.canto" class="bloque">
+    <!-- Canto e reclamo van os dous, un debaixo do outro. Son sons distintos e
+         moitas veces non se parecen en nada: o reclamo é o que máis se oe no
+         monte, e o canto o que identifica a especie. -->
+    <section v-if="especie.cantos.length" class="bloque">
       <h2>Como soa</h2>
-      <ReproducirCanto :canto="especie.canto" :especie="titulo" />
+      <div class="sons">
+        <ReproducirCanto
+          v-for="c in especie.cantos" :key="c.ficheiro"
+          :canto="c" :especie="titulo"
+        />
+      </div>
     </section>
 
     <section v-if="especie.fenoloxia && especie.fenoloxia.total" class="bloque">
@@ -418,6 +430,13 @@ const outrosNomes = computed(() => {
 
 /* Non é un aviso de erro: é unha pista útil. Verde tenue, coma o resto do que
    engade información na app, e non o amarelo do toxo que marca advertencias. */
+/* Separación entre o canto e o reclamo: sen isto o crédito dun queda pegado á
+   pílula do seguinte e parece que a etiqueta é do reprodutor de arriba. */
+.sons {
+  display: grid;
+  gap: 1.25rem;
+}
+
 .plumaxes {
   margin: 0 0 0.75rem;
   padding: 0.5rem 0.75rem;

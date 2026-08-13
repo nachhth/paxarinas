@@ -58,7 +58,11 @@ const ligazonGitHub = computed(() =>
 <template>
   <p class="avisar">
     Ves algo mal nesta páxina?
-    <a :href="ligazonGitHub" rel="noopener">Avísao en GitHub</a>
+    <!-- Nunha pestana nova: quen avisa dun erro está a mirar a ficha, e
+         levalo a GitHub faríalle perder o sitio no que estaba. -->
+    <a :href="ligazonGitHub" target="_blank" rel="noopener">
+      Avísao en GitHub
+    </a>
   </p>
 </template>
 

@@ -25,7 +25,7 @@ export function useDescargaOffline(especies: Especie[]) {
 
   const urls = computed(() => [
     ...especies.filter(e => e.foto).map(e => e.foto!.grande),
-    ...especies.filter(e => e.canto).map(e => e.canto!.ficheiro),
+    ...especies.flatMap(e => e.cantos.map(c => c.ficheiro)),
   ])
 
   const total = computed(() => urls.value.length)

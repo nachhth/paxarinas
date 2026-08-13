@@ -8,13 +8,14 @@ const conFoto = computed(() =>
     .filter(e => e.foto)
     .sort((a, b) => a.cientifico.localeCompare(b.cientifico)))
 
-const conCanto = computed(() => catalogo.especies.filter(e => e.canto))
+/** Todas as gravacións, non unha por especie: cada unha ten a súa autoría. */
+const gravacions = computed(() => catalogo.especies.flatMap(e => e.cantos))
 
 /** De que país procede cada gravación: as voces varían entre subespecies. */
 const porPais = computed(() => {
   const conta = new Map<string, number>()
-  for (const e of conCanto.value) {
-    const p = e.canto!.pais ?? 'sen indicar'
+  for (const c of gravacions.value) {
+    const p = c.pais ?? 'sen indicar'
     conta.set(p, (conta.get(p) ?? 0) + 1)
   }
   return [...conta.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
@@ -131,10 +132,10 @@ const porLicenza = computed(() => {
       </p>
     </section>
 
-    <section v-if="conCanto.length" class="bloque">
+    <section v-if="gravacions.length" class="bloque">
       <h2>Gravacións</h2>
       <p>
-        {{ conCanto.length }} gravacións de
+        {{ gravacions.length }} gravacións de
         <a href="https://xeno-canto.org">xeno-canto</a>, recortadas a 15
         segundos e recodificadas. Por iso só se empregan gravacións cuxa
         licenza permite obras derivadas. Prioritízanse as gravadas en Galicia
@@ -193,13 +194,17 @@ const porLicenza = computed(() => {
                 <NuxtLink :to="`/especie/${e.slug}`">{{ e.cientifico }}</NuxtLink>
               </td>
               <td>{{ e.foto!.autor ?? 'Autoría non indicada' }}</td>
+              <!-- `ligazon` coma no resto da app: as dúas URL veñen de
+                   `extmetadata` de Commons, que edita calquera. Se non son
+                   http(s) queda o nome da licenza en texto —que é o que esixe a
+                   atribución— pero sen enlace. -->
               <td>
-                <a v-if="e.foto!.licenzaUrl" :href="e.foto!.licenzaUrl" rel="license">
+                <a v-if="ligazon(e.foto!.licenzaUrl)" :href="ligazon(e.foto!.licenzaUrl)!" rel="license">
                   {{ e.foto!.licenza }}
                 </a>
                 <span v-else>{{ e.foto!.licenza }}</span>
-                <template v-if="e.foto!.orixe">
-                  · <a :href="e.foto!.orixe">orixe</a>
+                <template v-if="ligazon(e.foto!.orixe)">
+                  · <a :href="ligazon(e.foto!.orixe)!">orixe</a>
                 </template>
               </td>
             </tr>
