@@ -92,11 +92,13 @@ const marcador = computed(() => (posicion.value ? aLenzo([posicion.value.lon, po
       <div class="pé">
         <button
           type="button"
-          class="botón"
+          class="boton boton--suave botón"
           :disabled="estado === 'buscando'"
           @click="localiza"
         >
-          {{ estado === 'buscando' ? 'Localizando…' : '📍 Vese onde estou?' }}
+          <span v-if="estado === 'buscando'" class="pulso" aria-hidden="true" />
+          <span v-else aria-hidden="true">📍</span>
+          {{ estado === 'buscando' ? 'Localizando…' : 'Vese onde estou?' }}
         </button>
 
         <p v-if="erro" class="nota" role="status">{{ erro }}</p>
@@ -122,7 +124,12 @@ const marcador = computed(() => (posicion.value ? aLenzo([posicion.value.lon, po
 
 <style scoped>
 .resumo {
-  margin: 0 0 0.6rem;
+  margin: 0 0 0.8rem;
+  text-wrap: pretty;
+}
+
+.resumo strong {
+  font-size: 1.05em;
 }
 
 .principais {
@@ -134,6 +141,15 @@ const marcador = computed(() => (posicion.value ? aLenzo([posicion.value.lon, po
   width: 100%;
   max-width: 26rem;
   height: auto;
+  /* Aparece cando o compoñente monta no cliente, no oco que xa reservou a
+     ficha: sen isto entraba de golpe onde antes había un esqueleto. */
+  animation: revela 340ms ease-out both;
+}
+
+@keyframes revela {
+  from {
+    opacity: 0;
+  }
 }
 
 .zona {
@@ -156,37 +172,50 @@ const marcador = computed(() => (posicion.value ? aLenzo([posicion.value.lon, po
 }
 
 .pé {
-  margin-top: 0.6rem;
+  margin-top: 0.8rem;
 }
 
-.botón {
-  min-height: 2.75rem;
-  padding: 0.55rem 0.7rem;
-  font: inherit;
-  font-weight: 600;
-  color: inherit;
-  background: var(--bretema);
-  border: 1px solid var(--borde);
-  border-radius: var(--raio);
-  cursor: pointer;
-}
-
+/* `.boton--suave` vén de base.css; aquí só o cursor de espera. */
 .botón:disabled {
-  opacity: 0.6;
   cursor: progress;
 }
 
+.pulso {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--fento);
+  animation: late 1.1s ease-in-out infinite;
+}
+
+@keyframes late {
+  50% {
+    opacity: 0.25;
+    transform: scale(0.7);
+  }
+}
+
 .nota {
-  margin: 0.5rem 0 0;
+  margin: 0.6rem 0 0;
+  padding: 0.6rem 0.75rem;
+  background: var(--fento-tenue);
+  border-radius: var(--raio);
   font-size: 0.9rem;
+  color: var(--tinta);
+  text-wrap: pretty;
+  animation: revela 260ms ease-out both;
 }
 
 .nota__matiz {
   color: var(--tinta-suave);
 }
 
+/* Non é un erro nin un oco por cargar: é un dato que non existe. Dise sen
+   caixa de alerta, en texto secundario. */
 .sen-datos {
   margin: 0;
   color: var(--tinta-suave);
+  font-size: 0.9rem;
+  text-wrap: pretty;
 }
 </style>

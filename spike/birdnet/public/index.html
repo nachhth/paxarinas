@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="gl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spike BirdNET — Paxariñas</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🐦</text></svg>">
+<style>
+  :root { color-scheme: light dark; --b: #7a7a7a55; }
+  body { font: 16px/1.5 system-ui, sans-serif; margin: 0; padding: 1rem;
+         max-width: 46rem; margin-inline: auto; }
+  h1 { font-size: 1.3rem; margin: 0 0 .2rem }
+  h2 { font-size: 1rem; margin: 1.6rem 0 .5rem; border-bottom: 1px solid var(--b); padding-bottom: .3rem }
+  p.axuda { margin: .2rem 0 .8rem; opacity: .75; font-size: .87rem }
+  button { font: inherit; padding: .7rem 1rem; margin: .2rem .3rem .2rem 0;
+           border-radius: .5rem; border: 1px solid var(--b); background: #8881;
+           cursor: pointer; min-height: 44px; }
+  button:disabled { opacity: .4; cursor: default }
+  button.principal { background: #2d7d46; color: #fff; border-color: #2d7d46 }
+  progress { width: 100%; height: .6rem }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem }
+  th, td { text-align: left; padding: .3rem .5rem; border-bottom: 1px solid var(--b) }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums }
+  #rexistro { font: .8rem/1.45 ui-monospace, monospace; white-space: pre-wrap;
+              background: #8881; padding: .7rem; border-radius: .5rem;
+              max-height: 22rem; overflow: auto }
+  .barra { height: .55rem; background: #2d7d46; border-radius: 3px; display: inline-block; vertical-align: middle }
+  label { display: block; margin: .4rem 0 }
+  .erro { color: #c62828; font-weight: 600 }
+  .aviso { background: #b8860b22; border-left: 3px solid #b8860b; padding: .5rem .7rem;
+           border-radius: .3rem; font-size: .87rem; margin: .6rem 0 }
+</style>
+</head>
+<body>
+
+<h1>Spike: BirdNET no navegador</h1>
+<p class="axuda">
+  Non é unha funcionalidade de Paxariñas. Serve só para responder a unha pregunta:
+  <strong>aguanta un móbil a inferencia de BirdNET en local?</strong>
+  Todo se executa no dispositivo; non se envía audio a ningures.
+</p>
+
+<div id="contexto" class="aviso" hidden></div>
+
+<h2>1 · Cargar o modelo</h2>
+<p class="axuda">Mide os bytes descargados e o tempo ata que o modelo está listo para predicir.</p>
+<button id="bCargar" class="principal">Cargar modelo</button>
+<label><input type="checkbox" id="forzarWebgl"> Forzar WebGL (por defecto proba WebGPU primeiro)</label>
+<progress id="progreso" value="0" max="1" hidden></progress>
+<div id="infoCarga"></div>
+
+<h2>2 · Benchmark de inferencia</h2>
+<p class="axuda">
+  15 inferencias sobre ruído sintético. Non precisa micrófono nin permisos, así que
+  é a medida comparable entre dispositivos. Un fragmento = 3 s de audio.
+</p>
+<button id="bBench1" disabled>10× un fragmento (3 s)</button>
+<button id="bBench5" disabled>10× cinco fragmentos (15 s)</button>
+<div id="infoBench"></div>
+
+<h2>3 · Micrófono</h2>
+<p class="axuda">
+  Grava e identifica. Require contexto seguro (HTTPS ou localhost); nun móbil
+  a través de http://ip-da-lan o navegador nin sequera ofrece o permiso.
+</p>
+<label>Segundos a gravar:
+  <select id="segundos"><option>3</option><option selected>9</option><option>15</option></select>
+</label>
+<label><input type="checkbox" id="soGalegas" checked> Filtrar ás especies galegas</label>
+<label><input type="checkbox" id="soMes" checked> Descartar as que non se ven neste mes (fenoloxía do catálogo)</label>
+<button id="bGravar" disabled>Gravar e identificar</button>
+<div id="infoAudio"></div>
+<div id="resultados"></div>
+
+<h2>Rexistro</h2>
+<button id="bCopiar">Copiar o rexistro</button>
+<div id="rexistro"></div>
+
+<script>
+const $ = (id) => document.getElementById(id)
+const MOSTRAS = 144000
+const RITMO = 48000
+const liñas = []
+
+function rex (txt) {
+  const t = new Date().toISOString().slice(11, 23)
+  liñas.push(`${t}  ${txt}`)
+  $('rexistro').textContent = liñas.join('\n')
+  $('rexistro').scrollTop = 1e6
+}
+const mb = (b) => (b / 1048576).toFixed(2) + ' MB'
+const ms = (v) => v.toFixed(1) + ' ms'
+function estatisticas (v) {
+  const o = [...v].sort((a, b) => a - b)
+  const suma = o.reduce((s, x) => s + x, 0)
+  return {
+    n: o.length, min: o[0], max: o[o.length - 1], media: suma / o.length,
+    mediana: o[Math.floor(o.length / 2)], p95: o[Math.min(o.length - 1, Math.floor(o.length * 0.95))]
+  }
+}
+
+// ── Contexto do dispositivo ──────────────────────────────────────────────────
+const ctx = {
+  ua: navigator.userAgent,
+  nucleos: navigator.hardwareConcurrency ?? null,
+  memoriaGB: navigator.deviceMemory ?? null,
+  seguro: self.isSecureContext,
+  webgpu: 'gpu' in navigator,
+  pantalla: `${screen.width}×${screen.height} @${devicePixelRatio}`
+}
+$('contexto').hidden = false
+$('contexto').innerHTML =
+  `<strong>Dispositivo:</strong> ${ctx.nucleos ?? '?'} núcleos · ` +
+  `${ctx.memoriaGB ? ctx.memoriaGB + ' GB' : 'memoria descoñecida'} · ` +
+  `WebGPU ${ctx.webgpu ? 'dispoñible' : 'non dispoñible'} · ` +
+  `contexto ${ctx.seguro ? 'seguro' : '<span class="erro">NON seguro (o micrófono non vai funcionar)</span>'}`
+rex('contexto: ' + JSON.stringify(ctx))
+
+// ── Worker ───────────────────────────────────────────────────────────────────
+const worker = new Worker('/worker.js')
+let galegas = null
+let porIndice = new Map()
+let resolvente = null
+worker.onmessage = ({ data }) => {
+  if (data.tipo === 'progreso') { $('progreso').value = data.valor; return }
+  if (data.tipo === 'erro') {
+    rex('ERRO no worker: ' + data.mensaxe)
+    rex(data.pila || '')
+    $('infoCarga').innerHTML = `<p class="erro">Erro: ${data.mensaxe}</p>`
+    if (resolvente) { resolvente.rexeitar(new Error(data.mensaxe)); resolvente = null }
+    return
+  }
+  if (resolvente) { resolvente.resolver(data); resolvente = null }
+}
+const pedir = (msx) => new Promise((resolver, rexeitar) => {
+  resolvente = { resolver, rexeitar }
+  worker.postMessage(msx)
+})
+
+// ── 1 · Carga ────────────────────────────────────────────────────────────────
+$('bCargar').onclick = async () => {
+  $('bCargar').disabled = true
+  $('progreso').hidden = false
+  try {
+    rex('descargando galegas.json…')
+    galegas = await (await fetch('/galegas.json')).json()
+    porIndice = new Map(galegas.especies.map(e => [e.i, e]))
+    rex(`galegas.json: ${galegas.cubertas} especies de ${galegas.catalogo} do catálogo, ` +
+        `sobre ${galegas.etiquetasBirdNET} clases do modelo`)
+
+    const t0 = performance.now()
+    const { traza } = await pedir({
+      tipo: 'cargar',
+      backend: $('forzarWebgl').checked ? 'webgl' : null,
+      etiquetas: galegas.especies
+    })
+    const totalPaxina = performance.now() - t0
+    rex('traza de carga: ' + JSON.stringify(traza))
+
+    $('infoCarga').innerHTML = `<table>
+      <tr><th>Backend</th><td>${traza.backend} — ${traza.renderer}</td></tr>
+      <tr><th>Bytes descargados</th><td class="num">${mb(traza.bytesRede)} (${traza.bytesRede.toLocaleString('gl')} B)</td></tr>
+      <tr><th>Inicio do backend</th><td class="num">${ms(traza.msBackend)}</td></tr>
+      <tr><th>Carga do modelo</th><td class="num">${ms(traza.msModelo)}</td></tr>
+      <tr><th>Meta-modelo de área</th><td class="num">${ms(traza.msArea)}</td></tr>
+      <tr><th>Quecemento (1ª inferencia)</th><td class="num">${ms(traza.msQuecemento)}</td></tr>
+      <tr><th><strong>Total ata listo</strong></th><td class="num"><strong>${ms(totalPaxina)}</strong></td></tr>
+      <tr><th>Tensores en memoria</th><td class="num">${traza.memoriaTF.numTensors} · ${mb(traza.memoriaTF.numBytes)}</td></tr>
+    </table>`
+    $('bBench1').disabled = $('bBench5').disabled = $('bGravar').disabled = false
+  } catch (e) {
+    rex('fallou a carga: ' + e.message)
+    $('bCargar').disabled = false
+  }
+  $('progreso').hidden = true
+}
+
+// ── 2 · Benchmark ────────────────────────────────────────────────────────────
+async function benchmark (fragmentos) {
+  $('bBench1').disabled = $('bBench5').disabled = true
+  $('infoBench').innerHTML = '<p>medindo…</p>'
+  const r = await pedir({ tipo: 'benchmark', repeticions: 15, fragmentos })
+  const e = estatisticas(r.tempos)
+  const segAudio = fragmentos * 3
+  const tempoReal = (segAudio * 1000) / e.mediana
+  rex(`benchmark ${fragmentos} frag: ${r.tempos.map(t => t.toFixed(0)).join(', ')} ms`)
+  $('infoBench').innerHTML += `<table>
+    <tr><th colspan="2">${fragmentos} fragmento(s) = ${segAudio} s de audio, 10 repeticións</th></tr>
+    <tr><th>Mediana</th><td class="num">${ms(e.mediana)}</td></tr>
+    <tr><th>Media</th><td class="num">${ms(e.media)}</td></tr>
+    <tr><th>Mín / Máx</th><td class="num">${ms(e.min)} / ${ms(e.max)}</td></tr>
+    <tr><th>Por fragmento de 3 s</th><td class="num">${ms(e.mediana / fragmentos)}</td></tr>
+    <tr><th>Factor tempo real</th><td class="num">${tempoReal.toFixed(1)}×</td></tr>
+    <tr><th>Memoria de TF.js</th><td class="num">${mb(r.memoriaTF.numBytes)}</td></tr>
+  </table>`
+  if (performance.memory) {
+    rex(`JS heap: ${mb(performance.memory.usedJSHeapSize)} usado / ${mb(performance.memory.jsHeapSizeLimit)} límite`)
+  }
+  $('bBench1').disabled = $('bBench5').disabled = false
+}
+$('bBench1').onclick = () => benchmark(1)
+$('bBench5').onclick = () => benchmark(5)
+
+// ── 3 · Micrófono ────────────────────────────────────────────────────────────
+async function gravar (segundos) {
+  const fluxo = await navigator.mediaDevices.getUserMedia({
+    audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+  })
+  const ac = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: RITMO })
+  await ac.resume()
+  const fonte = ac.createMediaStreamSource(fluxo)
+  const trocos = []
+  // ScriptProcessor está obsoleto pero é o único soportado en todas partes,
+  // iOS Safari incluído. Nun spike compensa a compatibilidade.
+  const nodo = ac.createScriptProcessor(4096, 1, 1)
+  nodo.onaudioprocess = (ev) => trocos.push(new Float32Array(ev.inputBuffer.getChannelData(0)))
+  fonte.connect(nodo); nodo.connect(ac.destination)
+  rex(`gravando ${segundos}s a ${ac.sampleRate} Hz…`)
+  await new Promise(r => setTimeout(r, segundos * 1000))
+  nodo.disconnect(); fonte.disconnect()
+  fluxo.getTracks().forEach(t => t.stop())
+  const ritmoReal = ac.sampleRate
+  await ac.close()
+
+  let pcm = new Float32Array(trocos.reduce((s, t) => s + t.length, 0))
+  let desp = 0
+  for (const t of trocos) { pcm.set(t, desp); desp += t.length }
+
+  if (ritmoReal !== RITMO) {
+    rex(`o navegador ignorou sampleRate=48000 e deu ${ritmoReal}: remostrexando`)
+    const n = Math.floor(pcm.length * RITMO / ritmoReal)
+    const saida = new Float32Array(n)
+    for (let i = 0; i < n; i++) {
+      const x = i * ritmoReal / RITMO
+      const i0 = Math.floor(x)
+      const f = x - i0
+      saida[i] = pcm[i0] * (1 - f) + (pcm[i0 + 1] ?? pcm[i0]) * f
+    }
+    pcm = saida
+  }
+  const nFrag = Math.max(1, Math.floor(pcm.length / MOSTRAS))
+  const pico = pcm.reduce((m, v) => Math.max(m, Math.abs(v)), 0)
+  rex(`gravadas ${pcm.length} mostras → ${nFrag} fragmentos, pico ${pico.toFixed(3)}`)
+  if (pico < 0.001) rex('AVISO: o sinal está practicamente en silencio')
+  return { pcm: pcm.slice(0, nFrag * MOSTRAS), nFrag, pico, ritmoReal }
+}
+
+$('bGravar').onclick = async () => {
+  $('bGravar').disabled = true
+  $('resultados').innerHTML = ''
+  try {
+    const seg = Number($('segundos').value)
+    $('infoAudio').innerHTML = `<p>gravando ${seg} s…</p>`
+    const audio = await gravar(seg)
+    $('infoAudio').innerHTML = `<p>Gravados ${seg} s (${audio.nFrag} fragmentos de 3 s) a ${audio.ritmoReal} Hz, pico ${audio.pico.toFixed(3)}. Analizando…</p>`
+
+    const mes = new Date().getMonth() // 0-11
+    const r = await pedir({ tipo: 'predicir', pcm: audio.pcm, limiar: 0.03 })
+    rex(`inferencia de ${audio.nFrag} fragmentos en ${r.ms.toFixed(0)} ms`)
+
+    let lista = r.resultados
+    if ($('soMes').checked) {
+      lista = lista.filter(e => !e.meses || e.meses[mes] > 0)
+    }
+    // Quedamos coa mellor confianza de cada especie
+    const mellor = new Map()
+    for (const e of lista) if (!mellor.has(e.i) || mellor.get(e.i).confianza < e.confianza) mellor.set(e.i, e)
+    lista = [...mellor.values()].sort((a, b) => b.confianza - a.confianza).slice(0, 15)
+
+    $('infoAudio').innerHTML = `<p>${audio.nFrag} fragmentos analizados en <strong>${r.ms.toFixed(0)} ms</strong>
+      (${(r.ms / audio.nFrag).toFixed(0)} ms/fragmento). O modelo dá ${r.nClases} clases;
+      mírase só nas ${galegas.cubertas} galegas.</p>`
+
+    if (!lista.length) {
+      $('resultados').innerHTML = '<p>Nada por riba do limiar. Se non había paxaros cantando, iso é o correcto.</p>'
+    } else {
+      $('resultados').innerHTML = '<table><tr><th>Especie</th><th>Científico</th><th class="num">Confianza</th><th></th></tr>' +
+        lista.map(e => `<tr>
+          <td>${e.gl || '<em>sen nome galego</em>'}${e.rara ? ' <small>(rara)</small>' : ''}</td>
+          <td><em>${e.cientifico}</em></td>
+          <td class="num">${(e.confianza * 100).toFixed(1)}%</td>
+          <td><span class="barra" style="width:${(e.confianza * 90).toFixed(0)}px"></span></td>
+        </tr>`).join('') + '</table>'
+      rex('top: ' + lista.slice(0, 5).map(e => `${e.cientifico} ${(e.confianza * 100).toFixed(1)}%`).join(' | '))
+    }
+  } catch (e) {
+    rex('erro no micrófono/inferencia: ' + e.name + ' ' + e.message)
+    $('infoAudio').innerHTML = `<p class="erro">${e.name}: ${e.message}</p>` +
+      (self.isSecureContext ? '' : '<p class="erro">A páxina non está nun contexto seguro. Precisas HTTPS.</p>')
+  }
+  $('bGravar').disabled = false
+}
+
+$('bCopiar').onclick = () => navigator.clipboard.writeText(liñas.join('\n'))
+  .then(() => rex('rexistro copiado')).catch(() => rex('non se puido copiar'))
+</script>
+</body>
+</html>

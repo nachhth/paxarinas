@@ -1,35 +1,115 @@
 /* Paxariñas — estilos base.
-   Paleta tomada dos tons do monte galego: fento, toxo, granito, brétema. */
+   Paleta tomada dos tons do monte galego: fento, toxo, granito, brétema.
+
+   Organización do ficheiro:
+     1. Fichas de cor e medidas (tokens)
+     2. Reinicio e tipografía
+     3. Armazón do sitio (cabeceira, contido, rodapé)
+     4. Pezas compartidas: .bloque, .boton, controis, avisos, esqueletos
+     5. Movemento
+
+   Regra de ouro das cores: TODA cor ten o seu valor no `:root` de arriba.
+   O bloque escuro só reasigna valores que xa existen; así ningún token queda
+   definido unicamente dentro dunha `@media` e a folla segue sendo lexible se
+   o navegador non resolve a consulta. */
+
+/* ---------------------------------------------------------------- 1. Tokens */
 
 :root {
+  /* Cores base */
   --fento: #2d5016;
   --fento-claro: #4a7c2a;
   --toxo: #e8b923;
-  --granito: #6b7280;
+  --granito: #5f6b58;
   --bretema: #f4f5f2;
   --papel: #ffffff;
   --tinta: #1a1f16;
-  --tinta-suave: #5a6353;
+  --tinta-suave: #55604e;
   --borde: #e0e3dc;
 
+  /* Cores derivadas, con nome propio para poder cambialas no modo escuro sen
+     tocar as de arriba. A cabeceira é o caso claro: no escuro o verde de marca
+     acláranse tanto que o texto branco deixa de lerse enriba. */
+  --cabeceira-fondo: #2d5016;
+  --cabeceira-tinta: #ffffff;
+  --etiqueta-tinta: #3a2f00;
+  /* Texto do botón primario: no escuro o verde de marca é claro e o branco
+     deixaría de lerse enriba, así que a cor viaxa co tema. */
+  --boton-tinta: #ffffff;
+  /* Fondo tenue para as pílulas e as zonas resaltadas. */
+  --fento-tenue: #eaf1e2;
+  --foco: #4a7c2a;
+
+  --raio-p: 5px;
   --raio: 8px;
-  --sombra: 0 1px 3px rgb(26 31 22 / 8%);
+  --raio-g: 14px;
+  --sombra: 0 1px 2px rgb(26 31 22 / 6%), 0 1px 3px rgb(26 31 22 / 5%);
+  --sombra-alta: 0 2px 4px rgb(26 31 22 / 7%), 0 8px 18px rgb(26 31 22 / 10%);
+
+  /* Ritmo vertical: as marxes das pezas saen destas tres medidas e non de
+     números soltos, para que a páxina respire igual en todas partes. */
+  --oco-p: 0.5rem;
+  --oco: 1rem;
+  --oco-g: 1.75rem;
+
+  /* Que os controis nativos (caixas de verificación, o reprodutor de audio, as
+     listas despregables, as barras de desprazamento) sigan o tema. Sen isto
+     quedaban brancos e cegadores enriba do fondo escuro. */
+  color-scheme: light;
 
   --fonte: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Curva e duración únicas: todo o que se move na app móvese igual. */
+  --saída: 180ms cubic-bezier(0.2, 0, 0.2, 1);
+  --entrada: 260ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* O modo escuro repítese en dous selectores a propósito: a consulta de medios
+   atende a preferencia do sistema e o atributo atende unha escolla explícita.
+   Ningún dos dous introduce tokens novos. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema='claro']) {
+    color-scheme: dark;
+
     --bretema: #14170f;
     --papel: #1d211a;
     --tinta: #eef0ea;
     --tinta-suave: #a8b0a0;
     --borde: #2f342a;
-    --fento: #7ab04a;
-    --fento-claro: #9ccc65;
-    --sombra: 0 1px 3px rgb(0 0 0 / 40%);
+    --fento: #8cc45c;
+    --fento-claro: #a9d97f;
+    /* #6b7280 sobre #1d211a queda en 2,5:1 e non se le: os metadatos das
+       tarxetas eran texto gris sobre negro. */
+    --granito: #97a18f;
+    --cabeceira-fondo: #22301a;
+    --fento-tenue: #26301c;
+    --boton-tinta: #10160c;
+    --foco: #e8b923;
+    --sombra: 0 1px 2px rgb(0 0 0 / 45%);
+    --sombra-alta: 0 2px 6px rgb(0 0 0 / 45%), 0 10px 24px rgb(0 0 0 / 40%);
   }
 }
+
+:root[data-tema='escuro'] {
+  color-scheme: dark;
+
+  --bretema: #14170f;
+  --papel: #1d211a;
+  --tinta: #eef0ea;
+  --tinta-suave: #a8b0a0;
+  --borde: #2f342a;
+  --fento: #8cc45c;
+  --fento-claro: #a9d97f;
+  --granito: #97a18f;
+  --cabeceira-fondo: #22301a;
+  --fento-tenue: #26301c;
+  --boton-tinta: #10160c;
+  --foco: #e8b923;
+  --sombra: 0 1px 2px rgb(0 0 0 / 45%);
+  --sombra-alta: 0 2px 6px rgb(0 0 0 / 45%), 0 10px 24px rgb(0 0 0 / 40%);
+}
+
+/* ------------------------------------------------ 2. Reinicio e tipografía */
 
 *,
 *::before,
@@ -40,20 +120,119 @@
 body {
   margin: 0;
   font-family: var(--fonte);
+  font-size: 1rem;
   line-height: 1.6;
   color: var(--tinta);
   background: var(--bretema);
   -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+}
+
+/* Xerarquía: un só título grande por páxina, subtítulos claramente menores e
+   texto corrido no medio. Antes todo rondaba o mesmo corpo e a vista non tiña
+   onde pousarse. */
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+  text-wrap: balance;
+  margin: 0 0 var(--oco-p);
+}
+
+h1 {
+  font-size: clamp(1.55rem, 1.25rem + 1.5vw, 2.05rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--oco);
+}
+
+h2 {
+  font-size: clamp(1.1rem, 1rem + 0.5vw, 1.3rem);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+h3 {
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+p {
+  margin: 0 0 0.75rem;
 }
 
 a {
   color: var(--fento);
+  text-underline-offset: 0.15em;
+  transition: color var(--saída);
+}
+
+a:hover {
+  color: var(--fento-claro);
 }
 
 img {
   max-width: 100%;
   height: auto;
 }
+
+/* Un só anel de foco para toda a app. Vai por `:focus-visible`, así que o rato
+   non o ve pero o teclado nunca queda sen saber onde está. */
+:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+
+/* Dentro da cabeceira o verde do anel perderíase contra o fondo verde. */
+.cabeceira :focus-visible {
+  outline-color: #fff;
+}
+
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--fento);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--fento) 25%, transparent);
+}
+
+/* Só para lectores de pantalla, agás cando colle o foco (a ligazón de salto). */
+.só-lectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.só-lectores:focus-visible {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 20;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0.6rem 0.9rem;
+  clip-path: none;
+  background: var(--papel);
+  color: var(--tinta);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra-alta);
+}
+
+/* ------------------------------------------------------- 3. Armazón do sitio */
 
 .sitio {
   min-height: 100dvh;
@@ -62,13 +241,15 @@ img {
 }
 
 .cabeceira {
-  background: var(--fento);
+  background: var(--cabeceira-fondo);
   padding: 0.75rem 1rem;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem 1rem;
+  /* Un fío máis claro por baixo separa a cabeceira do contido sen sombra. */
+  box-shadow: inset 0 -1px 0 rgb(255 255 255 / 10%);
 }
 
 .menú {
@@ -82,22 +263,29 @@ img {
   display: flex;
   align-items: center;
   min-height: 2.75rem;
-  padding: 0 0.75rem;
+  padding: 0 0.85rem;
   border-radius: var(--raio);
-  color: #fff;
+  color: var(--cabeceira-tinta);
   text-decoration: none;
   font-size: 0.9rem;
+  transition: background var(--saída);
 }
 
 .menú a:hover {
   background: rgb(255 255 255 / 12%);
+  color: var(--cabeceira-tinta);
+}
+
+.menú a:active {
+  background: rgb(255 255 255 / 22%);
 }
 
 /* Exacta e non `router-link-active`: "/" é prefixo de todo e marcaría "Todas"
    como activa tamén no mapa. */
 .menú a.router-link-exact-active {
-  background: rgb(255 255 255 / 20%);
+  background: rgb(255 255 255 / 18%);
   font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--toxo);
 }
 
 .marca {
@@ -105,13 +293,23 @@ img {
   align-items: baseline;
   gap: 0.6rem;
   text-decoration: none;
-  color: #fff;
+  color: var(--cabeceira-tinta);
   flex-wrap: wrap;
+  border-radius: var(--raio);
+}
+
+.marca:hover {
+  color: var(--cabeceira-tinta);
 }
 
 .marca__icona {
   align-self: center;
   flex: none;
+  transition: transform var(--entrada);
+}
+
+.marca:hover .marca__icona {
+  transform: translateX(2px) rotate(-4deg);
 }
 
 .marca__nome {
@@ -122,7 +320,7 @@ img {
 
 .marca__lema {
   font-size: 0.85rem;
-  opacity: 0.85;
+  opacity: 0.82;
 }
 
 .contido {
@@ -130,17 +328,373 @@ img {
   width: 100%;
   max-width: 60rem;
   margin: 0 auto;
-  padding: 1.25rem 1rem 3rem;
+  padding: 1.5rem 1rem 3.5rem;
 }
 
 .rodape {
   border-top: 1px solid var(--borde);
-  padding: 1rem;
+  padding: 1.25rem 1rem;
   font-size: 0.85rem;
+  line-height: 1.7;
   color: var(--tinta-suave);
   text-align: center;
+  text-wrap: pretty;
 }
 
 .rodape p {
+  margin: 0 auto;
+  max-width: 42rem;
+}
+
+/* -------------------------------------------------- 4. Pezas compartidas */
+
+/* `.bloque` estaba copiado en catro ficheiros con valores lixeiramente
+   distintos. Aquí vive unha soa vez e as páxinas só o usan. */
+.bloque {
+  background: var(--papel);
+  border: 1px solid var(--borde);
+  border-radius: var(--raio-g);
+  padding: 1.1rem 1.15rem;
+  margin: 0 0 var(--oco);
+  box-shadow: var(--sombra);
+}
+
+/* Rótulo de sección: pequeno, en versaletas e cun trazo de cor diante. Non
+   compite co título da páxina, que é o que ten que mandar. */
+.bloque > h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.bloque > h2::before {
+  content: '';
+  flex: none;
+  width: 3px;
+  height: 0.85rem;
+  border-radius: 2px;
+  background: var(--fento);
+}
+
+.bloque > p:last-child {
+  margin-bottom: 0;
+}
+
+/* Nota ao pé dun bloque: a fonte do dato, a advertencia, o matiz. */
+.fonte,
+.nota {
+  font-size: 0.83rem;
+  line-height: 1.55;
+  color: var(--tinta-suave);
+  text-wrap: pretty;
+}
+
+.fonte {
+  margin: 0.6rem 0 0;
+}
+
+/* Listas de definición: etiqueta suave á esquerda, dato á dereita. */
+.datos {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 1.25rem;
   margin: 0;
+}
+
+.datos dt {
+  color: var(--tinta-suave);
+  font-size: 0.9rem;
+}
+
+.datos dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Botóns: primario cheo, secundario perfilado. Os dous con 44 px de alto. */
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.75rem;
+  padding: 0.6rem 1.15rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--boton-tinta);
+  background: var(--fento);
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  cursor: pointer;
+  transition: background var(--saída), box-shadow var(--saída), transform var(--saída);
+}
+
+.boton:hover {
+  background: var(--fento-claro);
+  box-shadow: var(--sombra-alta);
+}
+
+/* Feedback ao premer: o botón afúndese un chisco. */
+.boton:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.boton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.boton--suave {
+  color: var(--fento);
+  background: var(--papel);
+  border-color: var(--borde);
+  font-weight: 600;
+}
+
+.boton--suave:hover {
+  background: var(--fento-tenue);
+  border-color: var(--fento-claro);
+}
+
+/* Controis de formulario. 44 px de alto mínimo: por debaixo diso fallan ao
+   dedo. `font: inherit` mantén os 16 px que evitan o zoom automático de iOS. */
+.control {
+  min-height: 2.75rem;
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  color: inherit;
+  background: var(--papel);
+  border: 1px solid var(--borde);
+  border-radius: var(--raio);
+  transition: border-color var(--saída), box-shadow var(--saída);
+}
+
+.control:hover,
+input:hover,
+select:hover {
+  border-color: color-mix(in srgb, var(--fento) 35%, var(--borde));
+}
+
+/* O anel de foco dos controis vai acompañado dun halo, que é o que se ve de
+   lonxe nun móbil ao sol. */
+.control:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 1px;
+  border-color: var(--fento);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--tinta-suave);
+  cursor: pointer;
+  transition: color var(--saída);
+}
+
+.check:hover {
+  color: var(--tinta);
+}
+
+.check input {
+  width: 1.15rem;
+  height: 1.15rem;
+  cursor: pointer;
+}
+
+/* Ligazón de volta ao listado: discreta, pero cun desprazamento da frecha que
+   confirma que é navegable. */
+.volver {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.25rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: var(--raio-p);
+}
+
+.volver::before {
+  content: '←';
+  transition: transform var(--saída);
+}
+
+.volver:hover::before {
+  transform: translateX(-3px);
+}
+
+/* Aviso: unha franxa de cor á esquerda. `--aviso-cor` cámbiase por variante. */
+.aviso {
+  --aviso-cor: var(--toxo);
+
+  margin: 0.75rem 0 0;
+  padding: 0.7rem 0.9rem;
+  border-left: 3px solid var(--aviso-cor);
+  background: var(--papel);
+  border-radius: 0 var(--raio) var(--raio) 0;
+  font-size: 0.9rem;
+  text-wrap: pretty;
+}
+
+.aviso--ben {
+  --aviso-cor: var(--fento);
+}
+
+/* Estado baleiro: nin texto solto nin caixa chea. Un recadro punteado que
+   ocupa o oco do que non hai, para que non pareza que falta por cargar. */
+.baleiro {
+  display: grid;
+  place-items: center;
+  gap: 0.35rem;
+  padding: 2rem 1rem;
+  margin: 0;
+  border: 1px dashed var(--borde);
+  border-radius: var(--raio-g);
+  color: var(--tinta-suave);
+  text-align: center;
+  text-wrap: pretty;
+}
+
+.baleiro::before {
+  content: '🪶';
+  font-size: 1.6rem;
+  opacity: 0.5;
+  line-height: 1;
+}
+
+.baleiro__pista {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+/* Esqueletos de carga. Un rectángulo do color do fondo cun brillo que pasa por
+   riba; ao lado do contido real ten que pasar desapercibido. */
+.esqueleto {
+  position: relative;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--tinta) 7%, var(--papel));
+  border-radius: var(--raio);
+}
+
+.esqueleto::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--papel) 75%, transparent),
+    transparent
+  );
+  animation: brillo 1.5s ease-in-out infinite;
+}
+
+/* Pílula de etiqueta (estatus, "rara"…). */
+.etiqueta {
+  display: inline-block;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--toxo);
+  color: var(--etiqueta-tinta);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* --------------------------------------------------------- 5. Movemento */
+
+@keyframes brillo {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes entra {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Entrada de páxina. Vai sobre o fillo directo de `.contido`, que é a raíz de
+   cada páxina e nace de novo en cada navegación, así que a animación dispárase
+   soa sen envolver `<NuxtPage>` nunha transición: unha transición de saída
+   desmontaría a páxina vella, a altura do documento caería a cero e a
+   restauración da posición no listado —que custou de máis arranxar— quedaría
+   medindo sobre unha páxina baleira. Aquí só se moven opacidade e transform,
+   que non tocan a altura do documento. */
+.contido > * {
+  animation: entra var(--entrada) both;
+}
+
+/* As tarxetas do listado e as filas do mapa. Viven en estilos con `scoped`,
+   pero o que se engade aquí son propiedades que alí non se declaran, así que
+   conviven: o realce ao pasar por riba e o afundimento ao premer son iguais en
+   toda a app. */
+.tarxeta,
+.ave {
+  transition: transform var(--saída), box-shadow var(--saída), border-color var(--saída);
+}
+
+.tarxeta:hover,
+.ave:hover {
+  box-shadow: var(--sombra-alta);
+  transform: translateY(-2px);
+}
+
+.tarxeta:active,
+.ave:active {
+  transform: translateY(0);
+  box-shadow: var(--sombra);
+}
+
+.tarxeta:focus-visible,
+.ave:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+
+.tarxeta__foto {
+  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tarxeta:hover .tarxeta__foto {
+  transform: scale(1.035);
+}
+
+/* Quen pide menos movemento non recibe ningún. Non se apagan os estilos, só a
+   animación: os estados finais son os mesmos. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .tarxeta:hover,
+  .ave:hover,
+  .boton:active,
+  .tarxeta:hover .tarxeta__foto,
+  .marca:hover .marca__icona,
+  .volver:hover::before {
+    transform: none;
+  }
 }

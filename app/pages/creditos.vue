@@ -43,7 +43,7 @@ const porLicenza = computed(() => {
 
 <template>
   <div>
-    <NuxtLink to="/" class="volver">← Todas as aves</NuxtLink>
+    <NuxtLink to="/" class="volver">Todas as aves</NuxtLink>
     <h1>Créditos e licenzas</h1>
 
     <section class="bloque">
@@ -57,9 +57,28 @@ const porLicenza = computed(() => {
       </p>
       <ul class="resumo">
         <li v-for="[fonte, n] in porFonteNome" :key="fonte">
-          {{ fonte }}: {{ n }}
+          <span>{{ fonte }}</span><b>{{ n }}</b>
         </li>
       </ul>
+    </section>
+
+    <section class="bloque">
+      <h2>Tamaño e hábitat</h2>
+      <p>
+        Os datos de peso, medidas, hábitat e dieta que permiten identificar unha
+        ave sen saber o seu nome proveñen de
+        <a href="https://doi.org/10.1111/ele.13898">AVONET</a> (Tobias et al.,
+        <em>Ecology Letters</em>, 2022), distribuído baixo
+        <a href="https://creativecommons.org/licenses/by/4.0/" rel="license">CC BY 4.0</a>.
+        Cobre 513 das nosas especies.
+      </p>
+      <p>
+        As comparacións de tamaño («coma un pardal») e os grupos por silueta
+        son elaboración propia a partir deses datos e da taxonomía de GBIF.
+        <strong>Non hai datos de cor</strong>: non existe ningunha fonte aberta
+        que os recolla, e nunha ferramenta de identificación unha cor inventada
+        sería peor que ningunha.
+      </p>
     </section>
 
     <section class="bloque">
@@ -101,9 +120,15 @@ const porLicenza = computed(() => {
       </p>
       <ul class="resumo">
         <li v-for="[licenza, n] in porLicenza" :key="licenza">
-          {{ licenza }}: {{ n }}
+          <span>{{ licenza }}</span><b>{{ n }}</b>
         </li>
       </ul>
+      <p class="engadido">
+        Ademais, cada ficha ten unha galería con máis fotos que
+        <strong>non se descargan</strong>: quedan aloxadas en Commons e só se
+        ven con conexión. Cárganse ao premer, non soas, e cada unha amosa a súa
+        autoría e licenza.
+      </p>
     </section>
 
     <section v-if="conCanto.length" class="bloque">
@@ -117,71 +142,115 @@ const porLicenza = computed(() => {
       </p>
       <ul class="resumo">
         <li v-for="[pais, n] in porPais" :key="pais">
-          {{ pais }}: {{ n }}
+          <span>{{ pais }}</span><b>{{ n }}</b>
         </li>
       </ul>
     </section>
 
-    <div class="taboa-scroll">
-      <table class="taboa">
-        <thead>
-        <tr>
-            <th>Especie</th>
-            <th>Autoría</th>
-            <th>Licenza</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="e in conFoto" :key="e.slug">
-            <td>
-              <NuxtLink :to="`/especie/${e.slug}`">{{ e.cientifico }}</NuxtLink>
-            </td>
-            <td>{{ e.foto!.autor ?? 'Autoría non indicada' }}</td>
-            <td>
-              <a v-if="e.foto!.licenzaUrl" :href="e.foto!.licenzaUrl" rel="license">
-                {{ e.foto!.licenza }}
-              </a>
-              <span v-else>{{ e.foto!.licenza }}</span>
-              <template v-if="e.foto!.orixe">
-                · <a :href="e.foto!.orixe">orixe</a>
-              </template>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <section class="bloque">
+      <h2>Identificación polo son</h2>
+      <p>
+        A identificación de cantos faina <strong>BirdNET</strong> GLOBAL 6K
+        v2.4, de Stefan Kahl, Connor M. Wood, Maximilian Eibl e Holger Klinck,
+        do <a href="https://birdnet.cornell.edu/">K. Lisa Yang Center for
+        Conservation Bioacoustics</a> (Cornell Lab of Ornithology). O modelo
+        está baixo licenza
+        <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>,
+        que só permite usos <strong>sen ánimo de lucro</strong>: por iso esta
+        app nin ten publicidade nin a vai ter.
+      </p>
+      <p class="engadido">
+        Emprégase a conversión oficial a TensorFlow.js que publica
+        <a href="https://github.com/birdnet-team/BirdNET-Analyzer">BirdNET-Analyzer</a>
+        (código MIT), modificada para que reciba o espectrograma xa calculado;
+        o cálculo do mel-espectrograma escribiuse neste proxecto. O modelo
+        <strong>non se descarga ao instalar a app</strong>: son 51 MB e só
+        baixan se pides a identificación por son. Todo se executa no
+        dispositivo, co
+        <a href="https://tensorflow.org/js">TensorFlow.js</a> (Apache-2.0). O
+        son gravado non sae do teléfono.
+      </p>
+    </section>
+
+    <section class="bloque">
+      <h2>Foto a foto</h2>
+      <p class="fonte">
+        As {{ conFoto.length }} fotografías do catálogo, coa súa autoría e a súa
+        licenza. Ordenadas polo nome científico.
+      </p>
+      <div class="taboa-scroll">
+        <table class="taboa">
+          <thead>
+            <tr>
+              <th>Especie</th>
+              <th>Autoría</th>
+              <th>Licenza</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="e in conFoto" :key="e.slug">
+              <td>
+                <NuxtLink :to="`/especie/${e.slug}`">{{ e.cientifico }}</NuxtLink>
+              </td>
+              <td>{{ e.foto!.autor ?? 'Autoría non indicada' }}</td>
+              <td>
+                <a v-if="e.foto!.licenzaUrl" :href="e.foto!.licenzaUrl" rel="license">
+                  {{ e.foto!.licenza }}
+                </a>
+                <span v-else>{{ e.foto!.licenza }}</span>
+                <template v-if="e.foto!.orixe">
+                  · <a :href="e.foto!.orixe">orixe</a>
+                </template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.volver {
-  font-size: 0.9rem;
-  text-decoration: none;
+/* `.volver` e `.bloque` veñen de base.css. */
+
+.bloque p {
+  max-width: 46rem;
+  text-wrap: pretty;
 }
 
-.bloque {
-  background: var(--papel);
-  border: 1px solid var(--borde);
+/* Reconto por fonte, licenza ou país. Eran viñetas soltas; agora son pares
+   dato-cifra aliñados, que é o que se vén mirar aquí. */
+.resumo {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 1px;
+  font-size: 0.88rem;
   border-radius: var(--raio);
-  padding: 0.9rem 1.1rem;
-  margin-bottom: 1rem;
+  overflow: hidden;
+  background: var(--borde);
 }
 
-.bloque h2 {
-  margin: 0 0 0.5rem;
-  font-size: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.resumo li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0.6rem;
+  background: var(--papel);
   color: var(--tinta-suave);
 }
 
-.bloque p {
-  margin: 0 0 0.5rem;
+.resumo b {
+  color: var(--tinta);
+  font-variant-numeric: tabular-nums;
 }
 
-.resumo {
-  margin: 0;
-  padding-left: 1.2rem;
+.engadido {
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--borde);
   font-size: 0.9rem;
   color: var(--tinta-suave);
 }
@@ -204,14 +273,37 @@ const porLicenza = computed(() => {
 .taboa th,
 .taboa td {
   text-align: left;
-  padding: 0.35rem 0.6rem;
+  padding: 0.4rem 0.6rem;
   border-bottom: 1px solid var(--borde);
   vertical-align: top;
 }
 
+/* Cabeceira fixa ao subir a táboa. O fondo ten que ser opaco e do mesmo ton
+   que o bloque, se non vense pasar as filas por debaixo. */
 .taboa th {
   position: sticky;
   top: 0;
-  background: var(--bretema);
+  z-index: 1;
+  background: var(--papel);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+  box-shadow: inset 0 -1px 0 var(--borde);
+}
+
+/* Bandeado moi suave: 500 filas seguidas sen guía perdían a liña. */
+.taboa tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--tinta) 3%, transparent);
+}
+
+.taboa tbody tr:hover {
+  background: var(--fento-tenue);
+}
+
+.taboa td:first-child {
+  font-style: italic;
+  white-space: nowrap;
 }
 </style>

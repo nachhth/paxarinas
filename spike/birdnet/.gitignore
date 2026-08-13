@@ -1,0 +1,8 @@
+node_modules/
+public/modelo/
+public/vendor/
+public/galegas.json
+cert/
+medicions.json
+medicions-*.json
+tmp/

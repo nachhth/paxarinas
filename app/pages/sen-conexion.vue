@@ -11,7 +11,14 @@ const fotos = computed(() => catalogo.especies.filter(e => e.foto).length)
 const cantos = computed(() => catalogo.especies.filter(e => e.canto).length)
 
 const usado = ref<number | null>(null)
-onMounted(async () => { usado.value = await espazoUsado() })
+
+/** Precarga do modelo de son: baixa soa, agás que se apague aquí. */
+const precargaSonActiva = ref(true)
+onMounted(async () => {
+  usado.value = await espazoUsado()
+  precargaSonActiva.value = preferenciaPrecarga() === 'auto'
+})
+watch(precargaSonActiva, (v) => gardaPreferenciaPrecarga(v ? 'auto' : 'nunca'))
 
 // Refréscase ao rematar, para que se vexa canto ocupa xa a app.
 watch(estado, async (v) => {
@@ -21,7 +28,7 @@ watch(estado, async (v) => {
 
 <template>
   <div>
-    <NuxtLink to="/" class="volver">← Todas as aves</NuxtLink>
+    <NuxtLink to="/" class="volver">Todas as aves</NuxtLink>
     <h1>Uso sen conexión</h1>
 
     <section class="bloque">
@@ -37,6 +44,7 @@ watch(estado, async (v) => {
     </section>
 
     <section class="bloque">
+      <h2>O que se baixa</h2>
       <dl class="datos">
         <dt>Fotos grandes</dt>
         <dd>{{ fotos }}</dd>
@@ -46,12 +54,40 @@ watch(estado, async (v) => {
         <dd>{{ total }}</dd>
         <dt>Espazo aproximado</dt>
         <dd>uns 38 MB</dd>
-        <dt v-if="usado !== null">A app ocupa agora</dt>
-        <dd v-if="usado !== null">{{ formatoMB(usado) }}</dd>
+        <dt>A app ocupa agora</dt>
+        <!-- Mentres o navegador non responde a `estimate()` non se pon un
+             guión: iso diría "cero". Un esqueleto di "aínda non se sabe".
+             A bifurcación vai dentro do <dd> e non repetindo <dt>/<dd>: unha
+             cadea v-if/v-else non pode saltar por riba doutro elemento. -->
+        <dd>
+          <template v-if="usado !== null">{{ formatoMB(usado) }}</template>
+          <span v-else class="esqueleto esqueleto--liña" />
+        </dd>
       </dl>
     </section>
 
     <section class="bloque">
+      <h2>Identificación polo son</h2>
+      <p>
+        O modelo que recoñece os cantos son <strong>49 MB</strong> aparte. Para
+        que estea listo cando o precises, báixase só en segundo plano despois de
+        abrir a app — pero <strong>nunca con datos móbiles lentos nin co aforro
+        de datos activado</strong>: nesas condicións agarda a que teñas wifi.
+      </p>
+      <ClientOnly>
+        <label class="check">
+          <input v-model="precargaSonActiva" type="checkbox">
+          Baixar o modelo de son automaticamente
+        </label>
+      </ClientOnly>
+      <p class="nota">
+        Se o apagas, segue estando dispoñible: baixarase cando entres en
+        <NuxtLink to="/escoitar">identificar polo son</NuxtLink> e o pidas.
+      </p>
+    </section>
+
+    <section class="bloque">
+      <h2>Descarga</h2>
       <div v-if="estado === 'descargando'">
         <div
           class="barra" role="progressbar"
@@ -61,6 +97,7 @@ watch(estado, async (v) => {
           <div class="barra__feito" :style="{ width: `${porcentaxe}%` }" />
         </div>
         <p class="progreso">
+          <span class="progreso__pct">{{ porcentaxe }}%</span>
           {{ feitos }} de {{ total }} · {{ formatoMB(bytes) }}
           <template v-if="fallos"> · {{ fallos }} fallidos</template>
         </p>
@@ -93,91 +130,59 @@ watch(estado, async (v) => {
 </template>
 
 <style scoped>
-.volver {
-  font-size: 0.9rem;
-  text-decoration: none;
-}
-
-.bloque {
-  background: var(--papel);
-  border: 1px solid var(--borde);
-  border-radius: var(--raio);
-  padding: 0.9rem 1.1rem;
-  margin-bottom: 1rem;
-}
+/* `.volver`, `.bloque`, `.datos`, `.boton` e `.aviso` veñen de base.css. */
 
 .bloque p {
-  margin: 0 0 0.6rem;
-}
-
-.bloque p:last-child {
-  margin-bottom: 0;
-}
-
-.datos {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.3rem 1rem;
-  margin: 0;
-}
-
-.datos dt {
-  color: var(--tinta-suave);
+  max-width: 44rem;
+  text-wrap: pretty;
 }
 
 .datos dd {
-  margin: 0;
-  font-variant-numeric: tabular-nums;
-}
-
-.boton {
-  min-height: 2.75rem;
-  padding: 0.6rem 1.1rem;
-  font: inherit;
   font-weight: 600;
-  color: #fff;
-  background: var(--fento);
-  border: none;
-  border-radius: var(--raio);
-  cursor: pointer;
 }
 
-.boton--suave {
-  background: transparent;
-  color: var(--tinta-suave);
-  border: 1px solid var(--borde);
-  font-weight: 400;
-}
-
+/* Barra de progreso. O carril leva o mesmo redondeo que a parte feita, senón
+   ao chegar ao final vense as esquinas cadradas por baixo. */
 .barra {
-  height: 0.6rem;
-  background: var(--bretema);
+  height: 0.55rem;
+  background: color-mix(in srgb, var(--tinta) 9%, var(--papel));
   border-radius: 999px;
   overflow: hidden;
 }
 
 .barra__feito {
   height: 100%;
-  background: var(--fento);
-  transition: width 0.2s linear;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--fento), var(--fento-claro));
+  transition: width 0.25s ease-out;
 }
 
 .progreso {
-  margin: 0.5rem 0;
-  font-size: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0.6rem 0 0.8rem;
+  font-size: 0.88rem;
   color: var(--tinta-suave);
   font-variant-numeric: tabular-nums;
 }
 
-.aviso {
-  margin: 0.75rem 0 0;
-  padding: 0.6rem 0.8rem;
-  border-left: 3px solid var(--toxo);
-  border-radius: 0 var(--raio) var(--raio) 0;
-  font-size: 0.9rem;
+/* A porcentaxe é o dato que se mira de esguello mentres baixa: vai grande e
+   con ancho de cifra fixo para que non baile. */
+.progreso__pct {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--tinta);
+  letter-spacing: -0.02em;
 }
 
-.aviso--ben {
-  border-left-color: var(--fento);
+/* Esqueleto do tamaño dunha liña de texto, para o dato que aínda non chegou. */
+.esqueleto--liña {
+  display: inline-block;
+  width: 4.5rem;
+  height: 0.85em;
+  vertical-align: -0.1em;
+  border-radius: var(--raio-p);
 }
 </style>

@@ -31,6 +31,9 @@ tecnología. Cualquier decisión que la debilite va en contra del proyecto.
 | Catálogo | 477 kB · Zonas: 188 kB · Fotos: 34,5 MB · Cantos: 15,1 MB |
 | Despliegue generado | 1942 ficheros, 56,5 MB |
 
+Rutas: `/` catálogo · `/identificar` guiada · `/escoitar` por sonido ·
+`/mapa` comarcas · `/vistas` lista personal · `/creditos` · `/sen-conexion`.
+
 Funciona: listado con búsqueda y filtros (incluido **"vense en <mes>"**), ficha
 por especie con barra de doce meses **y mapa de en qué comarcas está citada**,
 **mapa general por comarcas con "onde estou"**,
@@ -80,6 +83,13 @@ instalación con datos móviles.
 tabla aparte, para que sea imposible mostrar una imagen sin sus créditos. El
 ETL descarta cualquier foto sin licencia constatada.
 
+**La descarga offline (`/sen-conexion`) no escribe en la Cache API.** Pide los
+880 ficheros con `fetch` y deja que el service worker los guarde con las reglas
+`CacheFirst` que ya existen. Si duplicase aquí los nombres de caché, cualquier
+cambio en `nuxt.config.ts` dejaría huérfano lo bajado por esa vía. Detecta si no
+hay service worker activo y lo dice, en vez de fingir que descarga a ninguna
+parte.
+
 **Las peticiones a Wikimedia van con pausa** (`PAXARINAS_PAUSA`, 0,35 s) y con
 un User-Agent que lleva contacto real. Sin eso devuelve 429 en pocas decenas de
 peticiones. Los errores de red se capturan como `OSError` + `HTTPException`:
@@ -111,6 +121,125 @@ tragaría todo el mundo. Si algún día hace falta quitárselo a las fichas, la 
 es guardar en `especies.json` solo los índices de comarca de cada ave y dejar la
 geometría bajo demanda.
 
+**`inlineStyles` está desactivado.** Nuxt incrusta por defecto el CSS de cada
+componente dentro de cada página prerenderizada, así que con 517 fichas que
+comparten estilos cada regla se multiplica por 517: añadir dos bloques a la
+ficha subió el precache de 17 a 22 MB. Con una hoja compartida, la ficha volvió
+de 20 a 14 kB y el precache a 18,2. En un sitio que se precachea entero, la hoja
+compartida gana siempre.
+
+**Lo que se renderiza en servidor y es igual en las 517 fichas, se multiplica
+por 517 — y va directo al precache.** El mapa de la ficha se renderizaba en SSR
+e incrustaba los 81 kB de geometría de las 53 comarcas en cada página: las
+fichas pasaron de 5 a 99 kB, el despliegue de 56 a 101 MB y **el precache de 15
+a 61 MB**, que era justo el presupuesto que protegimos sacando fotos y cantos.
+Se arregló envolviendo el mapa en `<ClientOnly>` con un hueco reservado: la
+geometría ya viaja en un chunk compartido y cacheado, así que mandarla una vez
+por página era pura repetición. No era un problema de resolución del polígono,
+sino de repetición — bajar los vértices habría sido tirar de la palanca
+equivocada. **Ante cualquier componente pesado y común a todas las fichas, mirar
+el número de precache que imprime `nuxt generate`.**
+
+**La galería es la única parte que necesita conexión, y es deliberado.** Sus
+fotos siguen alojadas en Commons; solo se guardan los metadatos, en
+`public/data/galeria/`, excluidos del precache con `globIgnores`. Se cargan al
+pulsar y no solas, porque Wikimedia dice que enlazar directamente a sus imágenes
+"es posible, pero no está recomendado". Las obligaciones de licencia siguen
+intactas aunque no alojemos el fichero, así que cada foto muestra su autoría.
+
+## Identificación por sonido: `/escoitar`
+
+BirdNET GLOBAL 6K v2.4 corriendo **en el dispositivo**, sin servidor. El sonido
+grabado no sale del teléfono.
+
+**La licencia estaba bloqueada y se desbloqueó sin pedir permiso a nadie.** El
+spike daba por hecho que el modelo TFJS y los kernels STFT venían ambos de un
+repositorio sin licencia. Resultó que:
+
+- Cornell **publica él mismo la conversión a TensorFlow.js** (etiqueta `v1.5.1`
+  de BirdNET-Analyzer, la última con los checkpoints dentro). Verificado por
+  md5: los 13 shards son byte a byte idénticos. Aquel repositorio era un espejo.
+- El problema real era solo el kernel STFT, **y se eliminó en vez de
+  sustituirse**. La capa mel oficial usa `tf.signal.stft`, medida en **27
+  segundos** por fragmento de 3 s (DFT O(n²) en WebGL, inexistente en CPU). Se
+  sacaron las dos capas mel del grafo y el mel-espectrograma se calcula en JS
+  con FFT propia: **25 ms**. Mil veces más rápido y sin depender de WebGL ahí.
+
+Validación idéntica al spike, no parecida: 75% top-1 y 85% top-3 sobre 40 cantos
+reales, y **las 40 especies en el mismo puesto**. 48,5 ms por fragmento.
+
+**El modelo son 49 MB versionados en `public/birdnet/`.** Nunca en el precache
+(`globIgnores` + regla `CacheFirst`), descarga bajo demanda. El repo pasa de ~50
+a ~100 MB y el despliegue a ~117 MB: **es la decisión que más conviene revisar**,
+por los límites de Vercel. Los scripts ETL son deterministas, así que cambiar a
+descargar-en-el-build sigue siendo posible.
+
+El meta-modelo de área queda fuera: en la conversión oficial pesa 33,6 MB, no
+los 7,1 del espejo. El filtro por lista gallega y mes hace el mismo trabajo por
+86 kB.
+
+## Lista personal: `/vistas`
+
+Marcar aves vistas, con fecha, en `localStorage`. **Sin cuentas y sin servidor**:
+no sale del dispositivo. La contrapartida es que no sincroniza y se pierde al
+borrar los datos del navegador, y por eso hay exportación a CSV — ese es el
+seguro, no un extra.
+
+Todo lo que lee `localStorage` va dentro de `<ClientOnly>`: en el prerender no
+existe, y sin eso la hidratación no cuadraría con el HTML estático.
+
+## Identificación guiada: `/identificar`
+
+Es **el uso real de la app**: alguien ve un pájaro, no sabe cómo se llama y
+quiere llegar a él. Buscar por nombre solo sirve a quien ya lo sabe.
+
+Los rasgos vienen de AVONET (CC BY 4.0): masa, ala, hábitat y nicho trófico de
+11.009 especies, cruzados con nuestras 517 por nombre científico contra sus tres
+taxonomías alternativas (BirdLife, eBird, BirdTree) — **513 de 517 casan**.
+
+Dos decisiones que mandan sobre el resto:
+
+- **Ningún filtro es obligatorio.** Un asistente de pasos fijos acaba en cero
+  resultados sin que sepas qué respondiste mal. Aquí cada respuesta recorta y se
+  ve al momento cuánto recorta.
+- **Se ordena por número de citas, no alfabéticamente.** Quien ve un pájaro está
+  casi siempre viendo uno de los comunes. Poner el merlo antes que una divagante
+  con tres citas es la respuesta probable, no un capricho.
+
+El mes va puesto de entrada pero visible y desactivable: es el filtro que más
+recorta y el que nadie pensaría en poner.
+
+**Especies parecidas** (`parecidas` en el catálogo, 96% de cobertura): misma
+familia y masa cercana, comparada en escala logarítmica — entre 8 y 16 gramos
+hay la misma diferencia aparente que entre 800 y 1600. Deliberadamente
+conservador: dos aves de la misma familia y el mismo porte son las que de verdad
+se confunden. Contrastado a ojo: el paporrubio sale junto a papoazul, chasco y
+rousinol; la gaivota patiamarela con todo el complejo de gaivotas grandes.
+Su límite conocido: no captura confusiones de silueta entre tamaños distintos,
+como *Accipiter nisus* y *A. gentilis*.
+
+**Falta el color, y es el hueco más grande.** No existe ninguna fuente abierta
+que lo recoja para 11.000 especies, y en una herramienta de identificación un
+color inventado es peor que ningún color. Queda como curación manual: ~400
+especies, y es el trabajo que más acercaría esto a Merlin.
+
+**Cuidado con los identificadores no ASCII.** El escaneo de auto-importación de
+Nuxt no reconoce nombres con `ñ`: una función `habitatsDispoñibles` exportada
+desde un composable no se importa y falla el typecheck sin explicar por qué.
+
+**Los filtros viven en la URL, no solo en `ref`s.** Al volver atrás desde una
+ficha, el componente de la portada se recrea; si el estado viviera solo en
+locales, la lista que se pinta sería otra —las 393 enteras— y la posición que el
+router restaura, medida sobre la lista filtrada, caería casi al principio. Se
+midió en Chrome real: con búsqueda puesta, el documento pasaba de 37 998 px de
+alto a 141 593. En `/mapa` era peor: la comarca desaparecía, el listado iba tras
+un `v-if` y la página encogía de 19 990 px a 1 027, recortando el scroll de 2500
+a 183. **El `scrollBehavior` de Nuxt nunca fue el problema** y por eso no hay
+`router.options.ts`: restaura al píxel cuando la lista es la misma.
+La búsqueda escribe en la URL con 300 ms de retardo porque `replaceState` está
+limitado por número de llamadas y, al pasarse, Safari lanza y vue-router cae a
+recargar la página entera.
+
 **TypeScript fijado a la serie 5.** `vue-tsc` no funciona con TypeScript 7, que
 eliminó el subpath `./lib/tsc`. El `tsconfig.json` raíz solo referencia los que
 Nuxt genera en `.nuxt/`.
@@ -124,6 +253,7 @@ Nuxt genera en `.nuxt/`.
 | Wikidata | 119 nombres gallegos más | ✔ Sin clave |
 | Wikimedia Commons | 506 fotos con autoría | ✔ CC |
 | OpenStreetMap | Fronteras de las 53 comarcas | ✔ ODbL, atribuida en créditos |
+| AVONET | Tamaño, hábitat y dieta de 513 especies | ✔ CC BY 4.0 |
 | eBird | Checklist regional (500 spp), 1720 hotspots | Clave en `.env` |
 | xeno-canto | 374 cantos con autoría | Clave en `.env` |
 | RAG | Nomenclatura normativa | ⚠️ Pendiente de permiso |
@@ -134,7 +264,18 @@ solo existen en la web. Por eso la fenología sale de GBIF.
 
 Al pedir la clave de eBird se declaró que **no se redistribuirían registros
 individuales ni datos de observadores**, solo agregados. Es un compromiso real
-que condiciona qué se puede hacer con esa fuente.
+que condiciona qué se puede hacer con esa fuente. Lo que sí se usa: sus
+**hotspots**, que son sitios públicos con un recuento histórico de especies.
+1534 con 20+ especies, cruzados contra los polígonos de comarca; 1293 situados,
+241 en mar o islas exteriores, y las 53 comarcas tienen alguno.
+
+**El contraste con eBird no reveló ninguna especie que falte**, aunque a primera
+vista lo pareciera. De las 58 "solo en eBird", 21 son híbridos y formas
+domésticas —que eBird trata como taxones y GBIF no— y 37 son renombres:
+`Astur gentilis` es nuestro *Accipiter gentilis*, `Gulosus aristotelis` es
+*Phalacrocorax aristotelis*. Es divergencia entre la taxonomía Clements de eBird
+y el backbone de GBIF, no un hueco de cobertura. Queda anotado en el JSON para
+que nadie lo lea al revés.
 
 **Se guardan también las especies con una sola cita en una comarca.** Un umbral
 de tres dejaba fuera del mapa 87 especies, y eran justo las divagantes: para un
@@ -211,11 +352,13 @@ Es lo primero que debería revisar la SGO si colabora.
   el desarrollo (ya hay 87% de cobertura), pero es el techo de calidad.
   Si la SGO responde, lo primero que conviene pedirles es que revisen los
   estatus fenológicos estimados.
-- **Probar en un móvil real.** El CSS está pensado para móvil y se corrigieron
-  los objetivos táctiles y el scroll de la tabla de créditos, pero nunca se ha
-  abierto en un dispositivo. Dos cosas a vigilar: la rejilla renderiza ~390
-  tarjetas sin virtualización, y la instalación de la PWA se traga 12 MB de
-  precache de golpe.
+- **El móvil ya se probó** y todo iba bien, salvo la pérdida de posición al
+  volver de una ficha, que está corregida. Queda sin comprobar en un dispositivo
+  real: el gesto nativo de "atrás", el back después de que el sistema expulse la
+  página por memoria, y el comportamiento dentro de la PWA en modo `standalone`.
+  La rejilla de ~390 tarjetas sigue sin virtualizar, pero eso ya no afecta a la
+  restauración de la posición: lo que fallaba era el estado de los filtros.
+  Sigue en pie que la instalación descarga 16,2 MB de precache de una vez.
 
 ## Comandos
 

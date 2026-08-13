@@ -67,6 +67,15 @@ def carga_cantos() -> dict[str, dict]:
     return json.loads(ficheiro.read_text(encoding="utf-8"))["cantos"]
 
 
+def carga_rasgos() -> dict[str, dict]:
+    """Tamaño, hábitat e dieta: o que permite buscar sen saber o nome."""
+    ficheiro = OUT_DIR / "avonet_rasgos.json"
+    if not ficheiro.exists():
+        log("Aviso: sen avonet_rasgos.json. Non haberá identificación guiada.")
+        return {}
+    return json.loads(ficheiro.read_text(encoding="utf-8"))["rasgos"]
+
+
 def carga_fotos() -> dict[str, dict]:
     """Metadatos de Wikimedia, se xa se executou esa fonte."""
     ficheiro = OUT_DIR / "wikimedia_fotos.json"
@@ -89,6 +98,48 @@ def carga_hotspots() -> dict[str, list[dict]]:
             continue
         por_comarca.setdefault(h["comarca"], []).append(h)
     return por_comarca
+
+
+def engade_parecidas(catalogo: list[dict], cantas: int = 6) -> int:
+    """Para cada especie, con cales se pode confundir.
+
+    Mesma familia e tamaño semellante. É deliberadamente conservador: dúas aves
+    da mesma familia e do mesmo porte son as que de verdade se confunden no
+    campo, mentres que "parécense de cor" sería inventar, porque non temos cor.
+
+    Compáranse as masas en escala logarítmica: entre 8 e 16 gramos hai a mesma
+    diferenza aparente que entre 800 e 1600, e non a que darían os gramos.
+    """
+    import math
+
+    por_familia: dict[str, list[int]] = {}
+    for i, e in enumerate(catalogo):
+        if e["familia"]:
+            por_familia.setdefault(e["familia"], []).append(i)
+
+    con_parecidas = 0
+    for i, e in enumerate(catalogo):
+        veciñas = [j for j in por_familia.get(e["familia"] or "", []) if j != i]
+        masa = (e["rasgos"] or {}).get("masa")
+
+        if masa and masa > 0:
+            def distancia(j: int) -> float:
+                outra = (catalogo[j]["rasgos"] or {}).get("masa")
+                if not outra or outra <= 0:
+                    return float("inf")
+                return abs(math.log(outra) - math.log(masa))
+
+            veciñas.sort(key=distancia)
+        else:
+            # Sen masa non hai criterio de tamaño: quedan as máis citadas, que
+            # son as que alguén ten diante con máis probabilidade.
+            veciñas.sort(key=lambda j: -catalogo[j]["citas"])
+
+        e["parecidas"] = veciñas[:cantas]
+        if e["parecidas"]:
+            con_parecidas += 1
+
+    return con_parecidas
 
 
 def constrúe_zonas(catalogo: list[dict]) -> int:
@@ -175,6 +226,7 @@ def main() -> None:
     nomes_wd = carga_nomes_wikidata()
     fenoloxia = carga_fenoloxia()
     cantos = carga_cantos()
+    rasgos = carga_rasgos()
 
     catalogo = []
     sen_aceptar = 0
@@ -240,6 +292,9 @@ def main() -> None:
                 "pais": canto["pais"],
                 "tipo": canto["tipo"],
             } if canto else None,
+            # Sen isto non se pode buscar sen saber o nome, que é o uso real
+            # da app: alguén ve un paxaro e quere chegar a el.
+            "rasgos": rasgos.get(sci),
             # Os meses son dato bruto de GBIF; o estatus é unha estimación
             # feita sobre eles. Van xuntos para que a app poida amosar a
             # evidencia ao lado da interpretación.
@@ -251,6 +306,10 @@ def main() -> None:
 
     catalogo.sort(key=lambda x: (x["orde"] or "", x["familia"] or "", x["cientifico"]))
 
+    # Despois de ordenar: as parecidas gárdanse como índices, así que teñen que
+    # calcularse coa orde definitiva.
+    con_parecidas = engade_parecidas(catalogo)
+
     DESTINO.parent.mkdir(parents=True, exist_ok=True)
     DESTINO.write_text(
         json.dumps({
@@ -258,7 +317,8 @@ def main() -> None:
             "fontes": (["GBIF"]
                        + (["Wikidata"] if nomes_wd else [])
                        + (["Wikimedia Commons"] if fotos else [])
-                       + (["xeno-canto"] if cantos else [])),
+                       + (["xeno-canto"] if cantos else [])
+                       + (["AVONET"] if rasgos else [])),
             "avisoFenoloxia": "Estatus estimado a partir da distribución mensual "
                               "das citas de GBIF, non determinado por criterio experto.",
             "total": len(catalogo),
@@ -280,6 +340,9 @@ def main() -> None:
     log(f"  con fenoloxía fiable: {con_fen} ({con_fen / len(catalogo):.0%})")
     con_canto = sum(1 for e in catalogo if e["canto"])
     log(f"  con canto:       {con_canto} ({con_canto / len(catalogo):.0%})")
+    con_rasgos = sum(1 for e in catalogo if e["rasgos"])
+    log(f"  con rasgos:      {con_rasgos} ({con_rasgos / len(catalogo):.0%})")
+    log(f"  con parecidas:   {con_parecidas} ({con_parecidas / len(catalogo):.0%})")
     log(f"  descartadas por taxonomía non aceptada: {sen_aceptar}")
     log(f"\nEscrito en {DESTINO.relative_to(RAIZ)}")
 

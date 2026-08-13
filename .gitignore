@@ -21,6 +21,26 @@ __pycache__/
 # repositorio non existe no build. Rexeralos en cada despregamento suporía
 # martelar Wikimedia cada vez.
 
+# public/birdnet/ (51 MB: modelo de BirdNET, TensorFlow.js e o worker) TAMPOUCO
+# se ignora, polo mesmo motivo e tras sopesar a alternativa. Baixalo no build
+# desde GitHub en cada despregue aforraría 51 MB no repositorio, pero metería
+# unha descarga de terceiros no camino crítico do despregue — e a regra do
+# proxecto é que nada en runtime nin no build dependa dunha API externa. A
+# favor de versionalo: o modelo está fixado á versión 2.4 e non cambia nunca, así
+# que son 51 MB unha vez e sen churn.
+#
+# Consecuencia: o repositorio pasa de ~50 a ~100 MB e o despregue de 57 a
+# 110 MB. O PRECACHE NON SOBE: `globIgnores` en nuxt.config.ts deixa
+# `**/birdnet/**` fóra, e o modelo baixa baixo demanda desde /escoitar.
+#
+# Rexéranse con:
+#   node etl/birdnet/descargar_oficial.mjs
+#   node etl/birdnet/converter_espectro.mjs
+#   node etl/birdnet/xerar_galegas.mjs
+#   node etl/birdnet/vendor_tfjs.mjs
+etl/birdnet/orixinal/
+etl/birdnet/.venv/
+
 # Entorno
 .env
 .env.*

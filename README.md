@@ -38,6 +38,9 @@ python etl/fenoloxia.py        # en que meses se ve cada especie
 python etl/valida_fenoloxia.py # comproba a clasificación fenolóxica
 python etl/xenocanto_cantos.py # cantos (~40 min, precisa ffmpeg)
 python etl/zonas.py            # comarcas e as aves de cada unha
+python etl/ebird_hotspots.py   # lugares de observación
+python etl/commons_galeria.py  # galería só en liña: metadatos, non imaxes
+python etl/avonet_rasgos.py    # tamaño, hábitat e dieta (identificación guiada)
 python etl/build.py            # fusiona todo en data/especies.json
 ```
 
@@ -51,6 +54,11 @@ volve executalo: salta o que xa está descargado.
 
 As imaxes (`public/media/`) non van no repositorio; a súa autoría e licenza si,
 dentro de `data/especies.json`.
+
+A galería de cada ficha é a única parte da app que precisa conexión: as súas
+fotos quedan aloxadas en Commons e só se gardan os metadatos, en
+`public/data/galeria/`, fóra do precache. Cárganse ao premer, non soas, porque
+Wikimedia desaconsella enlazar directamente ás súas imaxes.
 
 ### Como está organizado
 

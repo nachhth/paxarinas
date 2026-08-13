@@ -114,10 +114,16 @@ miniaturas; las de 500 px se cachean al visitar cada ficha. Precachear los
 Pendiente para cerrar el offline del todo: un botón de *descargar todo para uso
 sen conexión* que fuerce la caché de las fotos grandes antes de salir al campo.
 
-**v1 — Identificación guiada**
-El equivalente al *Step-by-step ID* de Merlin: tamaño, colores, hábitat, época,
-comportamiento. Sin IA, solo datos bien estructurados. Muy didáctico y barato de
-construir sobre v0.
+**v1 — Identificación guiada** ✔ *(en `/identificar`)*
+El equivalente al *Step-by-step ID* de Merlin. Ejes: época, hábitat, tipo de ave
+(silueta), tamaño y comarca. Sin IA, solo datos bien estructurados. Los rasgos
+vienen de AVONET (CC BY 4.0); el tipo de ave se deriva de orden y familia,
+traducido a categorías que se reconocen de lejos — nadie sabe si lo que vio era
+un Charadriiforme, pero sí si era una limícola o una gaivota.
+
+Falta el **color**, que es el eje que más se echa en falta. No hay fuente
+abierta y en una herramienta de identificación un color inventado es peor que
+ninguno: es curación manual de ~400 especies.
 
 **v2 — Identificación por son**
 [BirdNET](https://birdnet-team.github.io/BirdNET-Analyzer/) en TFLite corriendo

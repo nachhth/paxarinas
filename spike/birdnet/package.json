@@ -1,0 +1,29 @@
+{
+  "name": "paxarinas-spike-birdnet",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Spike tecnico illado: BirdNET con TensorFlow.js no navegador. Non forma parte da app.",
+  "scripts": {
+    "modelo": "node descargar-modelo.mjs",
+    "galegas": "node xerar-galegas.mjs",
+    "vendor": "node vendor.mjs",
+    "prep": "node descargar-modelo.mjs && node vendor.mjs && node xerar-galegas.mjs",
+    "cert": "node cert.mjs",
+    "serve": "node servidor.mjs",
+    "medir": "node medir.mjs",
+    "filtro": "node filtro.mjs",
+    "validar": "node validar.mjs",
+    "comparar": "node comparar-melspec.mjs",
+    "diagnose": "node diagnose-melspec.mjs",
+    "validar-limpo": "node validar-limpo.mjs",
+    "probar-app": "node probar-app.mjs"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-backend-webgpu": "^4.22.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}

@@ -2,15 +2,67 @@
 import type { Especie } from '~/types/catalogo'
 
 const catalogo = useCatalogo()
+const route = useRoute()
+const router = useRouter()
 
 const MESES = ['xaneiro', 'febreiro', 'marzo', 'abril', 'maio', 'xuño',
   'xullo', 'agosto', 'setembro', 'outubro', 'novembro', 'decembro']
 
-const busca = ref('')
-const ordeEscollida = ref('')
-const incluirRaras = ref(false)
+/**
+ * Os filtros viven na URL, non só en refs locais.
+ *
+ * Ao entrar nunha ficha este compoñente destrúese, e ao volver atrás recréase.
+ * Se o estado vivise só aquí volvería cos valores por defecto, así que a lista
+ * que se pinta sería outra —as 393 enteiras— e a posición do scroll que o
+ * router restaura, medida sobre a lista filtrada, caería nun sitio que xa non
+ * ten nada que ver: co filtro posto o desprazamento é de poucos centos de
+ * píxeles e sobre a lista completa iso é practicamente o principio. Levándoos á
+ * query reconstrúese exactamente a mesma lista antes de restaurar o scroll.
+ *
+ * De propina, unha busca queda enlazable e compartible.
+ */
+function parametro(nome: string): string {
+  const v = route.query[nome]
+  return (Array.isArray(v) ? v[0] : v) ?? ''
+}
+
+/** Só se acepta un índice de mes real; calquera outra cousa é «todo o ano». */
+function mesDaQuery(): string {
+  const v = parametro('mes')
+  return /^(?:[0-9]|1[01])$/.test(v) ? v : ''
+}
+
+const busca = ref(parametro('busca'))
+const ordeEscollida = ref(parametro('orde'))
+const incluirRaras = ref(parametro('raras') === '1')
 /** '' = todo o ano; se non, índice 0-11 do mes escollido. */
-const mesEscollido = ref<string>('')
+const mesEscollido = ref<string>(mesDaQuery())
+
+/** A query queda co mínimo: un filtro sen poñer non aparece na URL. */
+function aplicaNaUrl() {
+  const query: Record<string, string> = {}
+  if (busca.value) query.busca = busca.value
+  if (mesEscollido.value !== '') query.mes = mesEscollido.value
+  if (ordeEscollida.value) query.orde = ordeEscollida.value
+  if (incluirRaras.value) query.raras = '1'
+
+  // `replace` e non `push`: cada tecleo non pode ser un paso atrás. Como só
+  // cambia a query e non a ruta, o scrollBehavior de Nuxt non move a páxina.
+  router.replace({ query })
+}
+
+// Os selectores e a caixa de verificación cambian dun golpe, así que van
+// directos. A busca vai con atraso: `replaceState` está limitado por número de
+// chamadas nos navegadores e ao pasarse Safari lanza, o que faría que
+// vue-router caese ao seu recambio, que é recargar a páxina enteira.
+watch([mesEscollido, ordeEscollida, incluirRaras], aplicaNaUrl)
+
+let atraso: ReturnType<typeof setTimeout> | undefined
+watch(busca, () => {
+  clearTimeout(atraso)
+  atraso = setTimeout(aplicaNaUrl, 300)
+})
+onBeforeUnmount(() => clearTimeout(atraso))
 
 /** Un mes conta como época da especie se recolle polo menos a metade do que
     lle tocaría cunha presenza uniforme (8,3%). */
@@ -52,6 +104,20 @@ const resultados = computed(() => {
     <p class="intro">
       <strong>{{ catalogo.total }}</strong> especies de aves con citas
       rexistradas en Galicia.
+    </p>
+
+    <!-- Buscar polo nome só serve a quen xa o sabe. Quen ve un paxaro e non o
+         coñece precisa a outra porta, e ten que atopala antes que os filtros. -->
+    <NuxtLink to="/identificar" class="chamada">
+      <span class="chamada__icona" aria-hidden="true">🔎</span>
+      <span>
+        <strong>Non sabes que paxaro é?</strong>
+        <span class="chamada__pe">Chega a el polo tamaño, o sitio e a época.</span>
+      </span>
+    </NuxtLink>
+
+    <p class="chamada__son">
+      Ou, se o oes cantar, <NuxtLink to="/escoitar">identifícao polo son</NuxtLink>.
     </p>
 
     <div class="filtros">
@@ -122,6 +188,37 @@ const resultados = computed(() => {
 <style scoped>
 .intro {
   margin-top: 0;
+  color: var(--tinta-suave);
+}
+
+.chamada {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 1rem;
+  background: var(--papel);
+  border: 1px solid var(--fento-claro);
+  border-left: 4px solid var(--fento);
+  border-radius: var(--raio);
+  text-decoration: none;
+  color: inherit;
+}
+
+.chamada__icona {
+  font-size: 1.5rem;
+  flex: none;
+}
+
+.chamada__pe {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--tinta-suave);
+}
+
+.chamada__son {
+  margin: -0.6rem 0 1rem;
+  font-size: 0.85rem;
   color: var(--tinta-suave);
 }
 

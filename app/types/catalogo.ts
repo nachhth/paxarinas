@@ -56,6 +56,47 @@ export interface Canto {
   tipo: string | null
 }
 
+/**
+ * Foto da galería. A diferenza de `Foto`, esta non se descarga: `url` apunta a
+ * Commons e só se ve con conexión. Vive en public/data/galeria/<slug>.json,
+ * fóra do catálogo e fóra do precache.
+ */
+export interface FotoGaleria {
+  /** 330 px, a da grella. */
+  url: string
+  /** 960 px, a que se ve ao ampliar. Igual á anterior se a orixinal é menor. */
+  urlGrande: string
+  autor: string | null
+  licenza: string | null
+  licenzaUrl: string | null
+  orixe: string | null
+}
+
+export type Tamano =
+  | 'moi pequena' | 'pequena' | 'mediana' | 'grande' | 'moi grande' | 'enorme'
+
+/**
+ * Rasgos de AVONET (CC BY 4.0). É o que permite chegar a unha especie sen saber
+ * o seu nome, que é o uso real: ves un paxaro e queres saber cal é.
+ *
+ * Non hai cor: non existe ningunha fonte aberta que a recolla para as 11.000
+ * especies, e inventala nunha ferramenta de identificación sería peor que non
+ * telo. Queda como traballo de curación manual.
+ */
+export interface Rasgos {
+  /** Gramos. */
+  masa: number | null
+  /** Milímetros. */
+  ala: number | null
+  tamano: Tamano | null
+  /** «coma un pardal»: a xente non estima pesos, compara. */
+  comparanza: string | null
+  habitat: string | null
+  habitatOrixe: string | null
+  come: string | null
+  nichoOrixe: string | null
+}
+
 export interface Especie {
   slug: string
   cientifico: string
@@ -66,9 +107,15 @@ export interface Especie {
   nomes: Nomes
   foto: Foto | null
   canto: Canto | null
+  rasgos: Rasgos | null
   fenoloxia: Fenoloxia | null
   /** Nº de ocorrencias rexistradas en GBIF para Galicia. Serve de proxy de abundancia. */
   citas: number
+  /**
+   * Índices no catálogo de especies coas que se pode confundir: mesma familia
+   * e tamaño semellante. Non inclúe parecido de cor, que non temos.
+   */
+  parecidas: number[]
   /** Menos de 10 citas: divagante, escapada de catividade ou erro de identificación. */
   rara: boolean
   gbifKey: number

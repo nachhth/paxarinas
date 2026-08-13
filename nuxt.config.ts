@@ -33,6 +33,17 @@ export default defineNuxtConfig({
         '{icon-192,icon-512,icon-maskable-512,apple-touch-icon,favicon-32}.png',
         'media/fotos/*-250.{jpg,jpeg,png}',
       ],
+      // A galería é deliberadamente só en liña: os seus metadatos apuntan a
+      // imaxes aloxadas en Commons, así que precachealos sería gardar 517
+      // ficheiros que sen cobertura non levan a ningunha parte.
+      //
+      // De `birdnet/` non pode entrar NADA. Son 51 MB (modelo, TensorFlow.js e
+      // o worker) fronte aos ~16 MB que custa instalar a app enteira, e o
+      // identificador por son é unha función opcional: quen só queira o
+      // catálogo e os nomes galegos non debe descargar nin un byte. Ollo con
+      // relaxar isto: `globPatterns` colle todo o `.js` e `.json`, así que
+      // `model.json` (120 kB) e `tf.min.js` (1,4 MB) entrarían solos.
+      globIgnores: ['**/data/galeria/**', '**/birdnet/**'],
       maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       runtimeCaching: [
         {
@@ -56,6 +67,23 @@ export default defineNuxtConfig({
             cacheableResponse: { statuses: [0, 200] },
           },
         },
+        {
+          // BirdNET: 51 MB fóra do precache. Como coas fotos grandes e os
+          // cantos, `/escoitar` pídeo con `fetch` e é este `CacheFirst` quen o
+          // garda; a páxina non escribe na Cache API. Sen esta regra o modelo
+          // habería que rebaixalo cada vez, que é xusto o que non pode pasar
+          // cando a app se usa no monte.
+          //
+          // `maximumFileSizeToCacheInBytes` non se aplica aquí: é un límite do
+          // precache, e os shards son de 4 MB.
+          urlPattern: /\/birdnet\//,
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'paxarinas-birdnet',
+            expiration: { maxEntries: 40, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        },
       ],
     },
     client: { installPrompt: true },
@@ -68,6 +96,14 @@ export default defineNuxtConfig({
   experimental: {
     // O catálogo xa vai no bundle; os payloads por páxina só o duplicarían.
     payloadExtraction: false,
+  },
+
+  features: {
+    // Por defecto Nuxt incrusta o CSS de cada compoñente na páxina. Con 517
+    // fichas que comparten os mesmos estilos iso multiplica por 517 cada regra:
+    // engadir dous bloques á ficha subiu o precache de 17 a 22 MB. Nun sitio
+    // que se precachea enteiro, unha folla compartida sempre é mellor.
+    inlineStyles: false,
   },
 
   nitro: {

@@ -1,10 +1,37 @@
 <script setup lang="ts">
 const catalogo = useCatalogo()
 const { zonas, aviso } = useZonas()
+const route = useRoute()
+const router = useRouter()
 
-const escollida = ref<string | null>(null)
-const incluirRaras = ref(false)
-const soDeste = ref(false)
+/**
+ * A comarca e os seus filtros van na URL polo mesmo motivo que na portada: ao
+ * volver dunha ficha este compoñente recréase, e se o estado vivise só nun ref
+ * a comarca quedaría sen escoller, o listado desaparecería enteiro (vai tras un
+ * `v-if`) e a páxina encollería ata non chegar á posición que o router intenta
+ * restaurar. Medido: de 19 990 px de alto a 1 027, e o scroll de 2 500 px
+ * acababa en 183. Aquí é máis grave que na portada, porque alí polo menos
+ * quedaba unha lista.
+ */
+function parametro(nome: string): string {
+  const v = route.query[nome]
+  return (Array.isArray(v) ? v[0] : v) ?? ''
+}
+
+const escollida = ref<string | null>(
+  zonas.some(z => z.id === parametro('zona')) ? parametro('zona') : null,
+)
+const incluirRaras = ref(parametro('raras') === '1')
+const soDeste = ref(parametro('mes') === '1')
+
+watch([escollida, incluirRaras, soDeste], () => {
+  const query: Record<string, string> = {}
+  if (escollida.value) query.zona = escollida.value
+  if (incluirRaras.value) query.raras = '1'
+  if (soDeste.value) query.mes = '1'
+  // `replace`: escoller comarca non é un paso de navegación do que volver.
+  router.replace({ query })
+})
 
 const MESES = [
   'xaneiro', 'febreiro', 'marzo', 'abril', 'maio', 'xuño',
@@ -58,8 +85,11 @@ useHead({ title: 'Mapa por comarcas — Paxariñas' })
 
     <section v-if="zona" class="listado">
       <h2 class="listado__título">
-        {{ zona.nome }}: {{ resultados.length }}
-        {{ resultados.length === 1 ? 'especie' : 'especies' }}
+        {{ zona.nome }}
+        <span class="listado__conta">
+          {{ resultados.length }}
+          {{ resultados.length === 1 ? 'especie' : 'especies' }}
+        </span>
       </h2>
 
       <details v-if="zona.lugares.length" class="lugares">
@@ -117,37 +147,78 @@ useHead({ title: 'Mapa por comarcas — Paxariñas' })
 
       <p v-if="!resultados.length" class="baleiro">
         Non hai ningunha especie que cadre con eses filtros nesta comarca.
+        <span class="baleiro__pista">
+          Proba a incluír as raras ou a quitar o filtro do mes.
+        </span>
       </p>
     </section>
+
+    <!-- Antes desta escolla a páxina remataba no mapa e non se sabía se
+         faltaba por cargar algo. -->
+    <p v-else class="baleiro">
+      Aínda non escolliches comarca.
+      <span class="baleiro__pista">
+        Preme unha no mapa, escóllea na lista ou usa «Onde estou».
+      </span>
+    </p>
   </div>
 </template>
 
 <style scoped>
+/* `.check` e `.baleiro` veñen de base.css, coa mesma regra dos 44 px. */
+
 .título {
   margin-top: 0;
-  font-size: 1.4rem;
 }
 
 .intro {
   color: var(--tinta-suave);
-  margin-top: 0;
+  margin: 0 0 1.1rem;
+  max-width: 44rem;
+  text-wrap: pretty;
 }
 
 .aviso {
-  margin: 0.75rem 0 1.5rem;
-  font-size: 0.8rem;
+  margin: 0.75rem 0 1.75rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 0.78rem;
+  line-height: 1.5;
   color: var(--tinta-suave);
+  text-wrap: pretty;
 }
 
+.listado {
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--borde);
+}
+
+/* Cabeceira do listado: o nome da comarca manda e o reconto vai de acompañante,
+   non ao mesmo peso coma antes. */
 .listado__título {
-  font-size: 1.1rem;
-  margin-bottom: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.5rem;
+  margin: 0 0 0.75rem;
+}
+
+.listado__conta {
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--tinta-suave);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Pregado por defecto: o que se busca aquí son as aves, non os sitios. */
 .lugares {
   margin-bottom: 0.75rem;
   font-size: 0.9rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--raio);
+  background: var(--papel);
 }
 
 .lugares summary {
@@ -155,26 +226,53 @@ useHead({ title: 'Mapa por comarcas — Paxariñas' })
   min-height: 2.75rem;
   display: flex;
   align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.8rem;
+  border-radius: var(--raio);
   color: var(--fento);
+  font-weight: 600;
+  list-style: none;
+  transition: background var(--saída);
+}
+
+.lugares summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Frecha propia que xira ao abrir: a nativa non se pode estilar en Safari. */
+.lugares summary::before {
+  content: '▸';
+  transition: transform var(--saída);
+}
+
+.lugares[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.lugares summary:hover {
+  background: var(--fento-tenue);
 }
 
 .lugares__lista {
   margin: 0;
-  padding-left: 1.1rem;
+  padding: 0 0.8rem 0 2rem;
 }
 
 .lugares__lista li {
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.3rem;
 }
 
 .lugares__conta {
   color: var(--tinta-suave);
   font-size: 0.8rem;
   margin-left: 0.35rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .lugares__fonte {
-  margin: 0.5rem 0 0;
+  margin: 0.6rem 0 0;
+  padding: 0.6rem 0.8rem 0;
+  border-top: 1px solid var(--borde);
   font-size: 0.78rem;
   color: var(--tinta-suave);
 }
@@ -182,24 +280,8 @@ useHead({ title: 'Mapa por comarcas — Paxariñas' })
 .filtros {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.25rem 1.25rem;
   margin-bottom: 0.75rem;
-}
-
-/* 44 px de alto mínimo, coma no resto da app: por debaixo diso falla ao dedo. */
-.check {
-  display: flex;
-  align-items: center;
-  min-height: 2.75rem;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  color: var(--tinta-suave);
-  cursor: pointer;
-}
-
-.check input {
-  width: 1.15rem;
-  height: 1.15rem;
 }
 
 .aves {
@@ -266,9 +348,6 @@ useHead({ title: 'Mapa por comarcas — Paxariñas' })
   font-size: 0.78rem;
   color: var(--granito);
   white-space: nowrap;
-}
-
-.baleiro {
-  color: var(--tinta-suave);
+  font-variant-numeric: tabular-nums;
 }
 </style>

@@ -71,7 +71,7 @@ const porProvincia = computed(() => {
     <div class="mapa__controis">
       <!-- O selector non é un extra de accesibilidade: nun móbil hai comarcas
            pequenas de máis para acertalas co dedo. -->
-      <select v-model="seleccionada" class="mapa__selector" aria-label="Escoller comarca">
+      <select v-model="seleccionada" class="control mapa__selector" aria-label="Escoller comarca">
         <option :value="null">Escolle unha comarca…</option>
         <optgroup v-for="[provincia, lista] in porProvincia" :key="provincia" :label="provincia">
           <option v-for="z in lista" :key="z.id" :value="z.id">
@@ -85,11 +85,15 @@ const porProvincia = computed(() => {
            hidratar, e iso é un desaxuste. Se non a hai, dise ao premelo. -->
       <button
         type="button"
-        class="mapa__boton"
+        class="boton boton--suave mapa__boton"
         :disabled="estado === 'buscando'"
         @click="localiza"
       >
-        {{ estado === 'buscando' ? 'Localizando…' : '📍 Onde estou' }}
+        <!-- Mentres busca, o mesmo botón: cambiar de texto e nada máis daba a
+             impresión de que non pasaba nada. O punto latexa. -->
+        <span v-if="estado === 'buscando'" class="pulso" aria-hidden="true" />
+        <span v-else aria-hidden="true">📍</span>
+        {{ estado === 'buscando' ? 'Localizando…' : 'Onde estou' }}
       </button>
     </div>
 
@@ -178,39 +182,56 @@ const porProvincia = computed(() => {
   margin-bottom: 0.75rem;
 }
 
-.mapa__selector,
-.mapa__boton {
-  min-height: 2.75rem;
-  padding: 0.55rem 0.7rem;
-  font: inherit;
-  color: inherit;
-  background: var(--papel);
-  border: 1px solid var(--borde);
-  border-radius: var(--raio);
-}
-
+/* `.control` e `.boton` veñen de base.css; aquí só o reparto do ancho. */
 .mapa__selector {
   flex: 1 1 14rem;
 }
 
 .mapa__boton {
   cursor: pointer;
-  font-weight: 600;
 }
 
 .mapa__boton:disabled {
-  opacity: 0.6;
   cursor: progress;
+}
+
+/* Punto que late mentres o navegador resolve a posición. */
+.pulso {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--fento);
+  animation: late 1.1s ease-in-out infinite;
+}
+
+@keyframes late {
+  50% {
+    opacity: 0.25;
+    transform: scale(0.7);
+  }
 }
 
 .mapa__erro,
 .mapa__aquí {
   margin: 0 0 0.75rem;
-  padding: 0.6rem 0.75rem;
+  padding: 0.65rem 0.8rem;
   border-radius: var(--raio);
   background: var(--papel);
   border: 1px solid var(--borde);
+  border-left: 3px solid var(--fento);
   font-size: 0.9rem;
+  animation: asoma 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.mapa__erro {
+  border-left-color: var(--toxo);
+}
+
+@keyframes asoma {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
 }
 
 .mapa__precision {
@@ -223,7 +244,7 @@ const porProvincia = computed(() => {
   height: auto;
   background: var(--papel);
   border: 1px solid var(--borde);
-  border-radius: var(--raio);
+  border-radius: var(--raio-g);
 }
 
 .zona {
@@ -231,13 +252,18 @@ const porProvincia = computed(() => {
   stroke: var(--papel);
   stroke-width: 1.5;
   cursor: pointer;
+  transition: fill-opacity var(--saída), stroke-width var(--saída);
 }
 
+/* Só cambia o contorno: subirlle a opacidade do recheo faríaa parecer doutro
+   tramo da escala, e a escala é o dato. */
 .zona:hover {
   stroke: var(--tinta);
   stroke-width: 2;
 }
 
+/* O anel de foco por defecto é un rectángulo arredor da caixa do trazado e
+   non segue a comarca: substitúese por un contorno groso na cor do toxo. */
 .zona:focus-visible {
   outline: none;
   stroke: var(--toxo);
@@ -265,25 +291,59 @@ const porProvincia = computed(() => {
 .lenda {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  margin-top: 0.5rem;
-  font-size: 0.75rem;
+  gap: 0;
+  margin-top: 0.6rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.01em;
   color: var(--tinta-suave);
 }
 
+/* Sen ocos entre as caixas: unha escala continua lese como escala; separada
+   parecían cinco categorías soltas. */
 .lenda__caixa {
   width: 1.6rem;
-  height: 0.8rem;
+  height: 0.55rem;
   background: var(--fento);
-  border-radius: 2px;
+}
+
+.lenda__caixa:first-of-type {
+  border-radius: 3px 0 0 3px;
+}
+
+.lenda__caixa:last-of-type {
+  border-radius: 0 3px 3px 0;
 }
 
 .lenda__texto {
   white-space: nowrap;
 }
 
+.lenda__texto:first-child {
+  margin-right: 0.45rem;
+}
+
+.lenda__texto:last-child {
+  margin-left: 0.45rem;
+}
+
+/* Resumo da comarca escollida: é a resposta á acción de premer, así que se
+   destaca sobre o resto do pé do mapa. */
 .mapa__pé {
-  margin: 0.5rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.5rem;
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0.8rem;
+  background: var(--fento-tenue);
+  border-radius: var(--raio);
   font-size: 0.9rem;
+  color: var(--tinta-suave);
+  font-variant-numeric: tabular-nums;
+}
+
+.mapa__pé strong {
+  font-size: 1.05rem;
+  color: var(--tinta);
 }
 </style>
