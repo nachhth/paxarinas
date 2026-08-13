@@ -257,33 +257,17 @@ input[type='radio'] {
   gap: 0.35rem;
 }
 
-/* Escribiuse para dous enlaces e xa son cinco: en móbil partíanse en tres liñas
-   cada un e a cabeceira convertíase nun bloque. Agora é unha fila propia que se
-   despraza en horizontal, coas etiquetas sen romper. Sangra ata os bordes para
-   que se vexa que hai máis á dereita. */
-@media (max-width: 46rem) {
-  .menú {
-    flex: 1 1 100%;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    margin-inline: -1rem;
-    padding-inline: 1rem;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-    /* Que o desprazamento pare en cada botón e non a medio. */
-    scroll-snap-type: x proximity;
-  }
-
-  .menú::-webkit-scrollbar {
-    display: none;
-  }
-
-  .menú a {
-    flex: none;
-    padding: 0 0.7rem;
-    scroll-snap-align: start;
-  }
+.menú__icona {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
+
 
 /* Alto de 44 px: son os dous enlaces que máis se tocan e van no borde
    superior, onde o dedo acerta peor. */
@@ -316,6 +300,49 @@ input[type='radio'] {
   background: rgb(255 255 255 / 18%);
   font-weight: 600;
   box-shadow: inset 0 -2px 0 var(--toxo);
+}
+
+/* Escribiuse para dous enlaces e xa son cinco. En móbil pasan a icona enriba e
+   etiqueta pequena debaixo, coma nunha barra de aplicación: as cinco entradas
+   caben nunha fila sen desprazamento e sen apertar o texto. Un menú que se
+   despraza agocha opcións, e aquí ningunha sobra.
+
+   VAI DESPOIS das regras de arriba a propósito: unha `@media` non engade
+   especificidade ningunha, así que se fose antes, `.menú a` volvería impoñer o
+   seu `min-height`, o seu `padding` e o seu corpo de letra por simple orde. */
+@media (max-width: 46rem) {
+  .menú {
+    flex: 1 1 100%;
+    justify-content: space-between;
+    gap: 0.1rem;
+  }
+
+  .menú a {
+    flex: 1 1 0;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15rem;
+    padding: 0.35rem 0.15rem;
+    /* Máis alto que o mínimo de 44 px porque agora leva dúas liñas. */
+    min-height: 3.25rem;
+    font-size: 0.65rem;
+    line-height: 1.15;
+    text-align: center;
+  }
+
+  .menú a span {
+    /* Que unha etiqueta longa non ensanche a súa columna e desequilibre o
+       reparto: antes córtase. */
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .menú__icona {
+    width: 1.35rem;
+    height: 1.35rem;
+  }
 }
 
 .marca {
@@ -697,6 +724,26 @@ select:focus-visible {
 .ave:focus-visible {
   outline: 2px solid var(--foco);
   outline-offset: 2px;
+}
+
+/* Todas as miniaturas recórtanse cara arriba e non polo centro.
+ *
+ * Moitas fotos de aves son verticais, e nun oco apaisado o centro dunha foto
+ * vertical é o peito e as patas: a cabeza —o que serve para identificar—
+ * quedaba fóra. Vense recortados o azor e o gabián, por exemplo.
+ *
+ * O bo de `object-position` é que só actúa cando hai algo que recortar: nunha
+ * foto apaisada, que enche o oco case exacto, non move nada. Así que corrixe o
+ * caso malo sen estragar o bo.
+ *
+ * 30% e non 0%: pegar a foto ao bordo superior corta as patas nas verticais
+ * moi longas e deixa aire de máis por riba nas cadradas.
+ */
+.tarxeta__foto,
+.ave__foto,
+.parecida__foto,
+.deteccion__foto {
+  object-position: 50% 30%;
 }
 
 .tarxeta__foto {

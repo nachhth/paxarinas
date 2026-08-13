@@ -20,13 +20,12 @@ Saída:
 
 from __future__ import annotations
 
-import html
 import json
-import re
 import urllib.parse
 from pathlib import Path
 
-from common import OUT_DIR, descarga_ficheiro, escribe_json, get_json, log, slug
+from common import (OUT_DIR, descarga_ficheiro, escribe_json, foto_admisible,
+                    get_json, log, sen_html, slug)
 
 RAIZ = Path(__file__).resolve().parent.parent
 DIR_FOTOS = RAIZ / "public" / "media" / "fotos"
@@ -46,10 +45,41 @@ LOTE_SPARQL = 100
 LOTE_COMMONS = 50
 
 
-def sen_html(texto: str) -> str:
-    """O campo de autoría de Commons vén como HTML (ligazóns, etiquetas...)."""
-    limpo = re.sub(r"<[^>]+>", " ", texto or "")
-    return re.sub(r"\s+", " ", html.unescape(limpo)).strip()
+def candidatas_da_categoria(sci: str, ancho: int) -> list[dict]:
+    """Fotos válidas de `Category:<nome científico>`, por se P18 non serve.
+
+    Wikidata apunta a unha soa imaxe por taxon e ninguén garante que sexa unha
+    foto: no asubiador era un selo de correos de 1994. Cando pasa iso hai que
+    ir buscar á categoría, que é de onde xa sae a galería.
+    """
+    data = get_json(COMMONS, {
+        "action": "query", "format": "json",
+        "generator": "categorymembers",
+        "gcmtitle": f"Category:{sci}",
+        "gcmtype": "file",
+        "gcmlimit": 50,
+        "prop": "imageinfo|categories",
+        "iiprop": "url|extmetadata|mime|size",
+        "iiurlwidth": ancho,
+        "cllimit": 100,
+        "clshow": "!hidden",
+    })
+
+    válidas = []
+    for paxina in data.get("query", {}).get("pages", {}).values():
+        info = (paxina.get("imageinfo") or [{}])[0]
+        if not info.get("thumburl") or not (info.get("mime") or "").startswith("image/"):
+            continue
+        titulo = paxina.get("title", "").removeprefix("File:")
+        cats = " · ".join(c.get("title", "") for c in paxina.get("categories", []))
+        if not foto_admisible(titulo, cats, info.get("extmetadata", {})):
+            continue
+        válidas.append((titulo, info))
+
+    # Alfabético por título, que é como as devolve Commons: sen criterio de
+    # calidade non hai nada mellor, e polo menos é estable entre execucións.
+    válidas.sort(key=lambda x: x[0])
+    return [{"ficheiro": t, "info": i} for t, i in válidas]
 
 
 def extension(ficheiro: str) -> str:
@@ -100,9 +130,13 @@ def detalles_commons(ficheiros: list[str], ancho: int) -> dict[str, dict]:
             "action": "query",
             "format": "json",
             "titles": "|".join(f"File:{f}" for f in lote),
-            "prop": "imageinfo",
-            "iiprop": "url|extmetadata",
+            "prop": "imageinfo|categories",
+            # `size` dá as medidas reais da miniatura: fan falta para amosar a
+            # foto principal coa súa proporción en vez de recortala.
+            "iiprop": "url|extmetadata|size",
             "iiurlwidth": ancho,
+            "cllimit": 100,
+            "clshow": "!hidden",
         })
 
         for paxina in data.get("query", {}).get("pages", {}).values():
@@ -111,6 +145,11 @@ def detalles_commons(ficheiros: list[str], ancho: int) -> dict[str, dict]:
                 continue
 
             meta = info.get("extmetadata", {})
+            titulo_cru = paxina["title"].removeprefix("File:")
+            cats = " · ".join(c.get("title", "") for c in paxina.get("categories", []))
+            # Non abonda con que exista: ten que ser unha foto do paxaro.
+            if not foto_admisible(titulo_cru, cats, meta):
+                continue
 
             def campo(clave: str) -> str | None:
                 valor = meta.get(clave, {}).get("value")
@@ -119,6 +158,8 @@ def detalles_commons(ficheiros: list[str], ancho: int) -> dict[str, dict]:
             titulo = paxina["title"].removeprefix("File:")
             detalles[titulo] = {
                 "thumb": info["thumburl"],
+                "ancho": info.get("thumbwidth"),
+                "alto": info.get("thumbheight"),
                 "autor": campo("Artist"),
                 "licenza": campo("LicenseShortName"),
                 "licenzaUrl": meta.get("LicenseUrl", {}).get("value"),
@@ -146,20 +187,70 @@ def main() -> None:
     minis = detalles_commons(ficheiros, ANCHO_MINI)
     log(f"Commons devolve datos de {len(grandes)} ficheiros.\n")
 
+    # Que ficheiro de orixe tiña cada especie na execución anterior. Serve para
+    # detectar que a foto cambiou aínda que o nome local sexa o mesmo.
+    anterior: dict[str, str] = {}
+    previo = OUT_DIR / "wikimedia_fotos.json"
+    if previo.exists():
+        anterior = {sci: d.get("ficheiro") for sci, d
+                    in json.loads(previo.read_text(encoding="utf-8"))["fotos"].items()}
+
     catalogo: dict[str, dict] = {}
     sen_licenza = 0
+    rescatadas = 0
+    cambiada: set[str] = set()
 
-    for nome, ficheiro in sorted(por_nome.items()):
-        info = grandes.get(ficheiro)
-        mini = minis.get(ficheiro)
+    # Tamén se busca alternativa para as que Wikidata nin sequera coñecía.
+    for nome in sorted(set(nomes)):
+        ficheiro = por_nome.get(nome)
+        info = grandes.get(ficheiro) if ficheiro else None
+        mini = minis.get(ficheiro) if ficheiro else None
+
+        # A imaxe de Wikidata non serve (é un selo, un exemplar de museo, unha
+        # ilustración) ou non existe: búscase unha foto de verdade na categoría.
         if not info or not mini:
-            continue
+            alternativas = candidatas_da_categoria(nome, ANCHO_GRANDE)
+            if not alternativas:
+                continue
+            escollida = alternativas[0]
+            ficheiro = escollida["ficheiro"]
+            cru = escollida["info"]
+            mini_cru = next((c["info"] for c in
+                             candidatas_da_categoria(nome, ANCHO_MINI)
+                             if c["ficheiro"] == ficheiro), None)
+            if not mini_cru:
+                continue
+
+            def campo(m, clave):
+                v = m.get(clave, {}).get("value")
+                return sen_html(v) if v else None
+
+            meta = cru.get("extmetadata", {})
+            info = {
+                "thumb": cru["thumburl"],
+                "ancho": cru.get("thumbwidth"), "alto": cru.get("thumbheight"),
+                "autor": campo(meta, "Artist"),
+                "licenza": campo(meta, "LicenseShortName"),
+                "licenzaUrl": meta.get("LicenseUrl", {}).get("value"),
+                "descricionUrl": cru.get("descriptionurl"),
+            }
+            mini = {"thumb": mini_cru["thumburl"]}
+            rescatadas += 1
+            # O nome local sae do slug da especie, non do ficheiro de orixe.
+            # Se a foto cambiou, o ficheiro que hai no disco é o vello, e
+            # `descarga_ficheiro` saltaríao por existir: hai que borralo.
+            cambiada.add(nome)
 
         # Sen constancia da licenza non se usa a imaxe. Cortar por aquí é máis
         # barato que descubrir despois que non se pode redistribuír.
         if not info["licenza"]:
             sen_licenza += 1
             continue
+
+        # Cambiou a foto de orixe respecto da última execución? Entón o que hai
+        # no disco baixo o nome desta especie xa non lle corresponde.
+        if nome in anterior and anterior[nome] != ficheiro:
+            cambiada.add(nome)
 
         s = slug(nome)
         catalogo[nome] = {
@@ -171,6 +262,10 @@ def main() -> None:
             "orixe": info["descricionUrl"],
             "grande": f"/media/fotos/{s}-{ANCHO_GRANDE}{extension(ficheiro)}",
             "mini": f"/media/fotos/{s}-{ANCHO_MINI}{extension(ficheiro)}",
+            # Medidas reais da grande: permiten reservarlle o oco exacto e
+            # amosala enteira, sen recortar e sen que salte a páxina.
+            "anchoGrande": info.get("ancho"),
+            "altoGrande": info.get("alto"),
             "_urlGrande": info["thumb"],
             "_urlMini": mini["thumb"],
         }
@@ -179,9 +274,14 @@ def main() -> None:
     baixadas = 0
     fallidas: list[str] = []
 
+    if cambiada:
+        log(f"  ({len(cambiada)} especies cambiaron de foto: bórrase a vella)")
+
     for i, (nome, dados) in enumerate(sorted(catalogo.items()), 1):
         for chave, ruta in (("_urlGrande", "grande"), ("_urlMini", "mini")):
             destino = RAIZ / "public" / dados[ruta].removeprefix("/")
+            if nome in cambiada:
+                destino.unlink(missing_ok=True)
             try:
                 if descarga_ficheiro(dados[chave], destino):
                     baixadas += 1
@@ -216,6 +316,8 @@ def main() -> None:
 
     log("")
     log(f"Especies con foto:    {len(catalogo)} de {len(nomes)}")
+    log(f"  buscadas na categoría porque a de Wikidata non servía "
+        f"ou non existía: {rescatadas}")
     log(f"Descartadas sen licenza: {sen_licenza}")
     log(f"Imaxes novas baixadas: {baixadas}")
     log(f"Peso total en disco:  {peso:.1f} MB")

@@ -25,8 +25,8 @@ import json
 import re
 from pathlib import Path
 
-from common import OUT_DIR, escribe_json, get_json, log, slug
-from wikimedia_fotos import sen_html
+from common import (OUT_DIR, escribe_json, foto_admisible, get_json, log,
+                    sen_html, slug)
 
 RAIZ = Path(__file__).resolve().parent.parent
 DIR_GALERIA = RAIZ / "public" / "data" / "galeria"
@@ -40,21 +40,8 @@ POR_ESPECIE = 20
 ANCHO_GRELLA = 330
 ANCHO_GRANDE = 960
 
-# As categorías de taxons tamén conteñen mapas de distribución, ilustracións
-# antigas, ovos, esqueletos e sonogramas. Non son o que busca alguén que quere
-# ver como é o paxaro.
-FÓRA = re.compile(
-    r"\b(map|distribution|range|verbreitung|areal|egg|eggs|nest|skeleton|skull|"
-    r"bone|specimen|illustration|drawing|plate|lithograph|stamp|sonogram|"
-    r"spectrogram|diagram|chart|logo|sign)\b",
-    re.IGNORECASE,
-)
-
-
-def licenza_ok(meta: dict) -> bool:
-    url = (meta.get("LicenseUrl", {}).get("value") or "")
-    curta = (meta.get("LicenseShortName", {}).get("value") or "")
-    return "creativecommons" in url or "public domain" in curta.lower() or "CC0" in curta
+# Os filtros do que non é unha foto do paxaro viven en `common.py`: compárteos
+# coa foto principal, porque o erro é o mesmo nas dúas.
 
 
 def fotos_de(sci: str, ancho: int) -> list[dict]:
@@ -64,9 +51,13 @@ def fotos_de(sci: str, ancho: int) -> list[dict]:
         "gcmtitle": f"Category:{sci}",
         "gcmtype": "file",
         "gcmlimit": 50,
-        "prop": "imageinfo",
+        # As categorías veñen na mesma petición: filtrar por elas non custa
+        # ningunha chamada extra.
+        "prop": "imageinfo|categories",
         "iiprop": "url|extmetadata|mime",
         "iiurlwidth": ancho,
+        "cllimit": 100,
+        "clshow": "!hidden",
     })
 
     candidatas = []
@@ -79,9 +70,10 @@ def fotos_de(sci: str, ancho: int) -> list[dict]:
             continue
         if not (info.get("mime") or "").startswith("image/"):
             continue
-        if FÓRA.search(titulo):
-            continue
-        if not licenza_ok(meta):
+
+        categorias = " · ".join(c.get("title", "")
+                                for c in paxina.get("categories", []))
+        if not foto_admisible(titulo, categorias, meta):
             continue
 
         def campo(clave: str) -> str | None:

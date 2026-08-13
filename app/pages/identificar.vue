@@ -167,7 +167,8 @@ function alterna(clave: 'habitat' | 'tamano' | 'grupo', valor: string) {
           <img
             v-if="e.foto" :src="e.foto.mini"
             :alt="`${nomeMostrado(e)} (${e.cientifico})`"
-            class="tarxeta__foto" width="250" height="180"
+            class="tarxeta__foto" :style="{ objectPosition: encadre(e.foto) }"
+            width="250" height="180"
             loading="lazy" decoding="async"
           >
           <span v-else class="tarxeta__foto tarxeta__foto--baleira" aria-hidden="true">🪶</span>

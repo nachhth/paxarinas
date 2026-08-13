@@ -7,6 +7,7 @@ JSON. A app nunca fala coas APIs externas.
 from __future__ import annotations
 
 import hashlib
+import html
 import http.client
 import json
 import os
@@ -165,6 +166,69 @@ def descarga_ficheiro(url: str, destino: Path, *, retries: int = 5) -> bool:
             _pausa_por_erro(err, intento)
 
     raise RuntimeError(f"Non se puido descargar: {url}") from last_error
+
+
+# ---------------------------------------------------------- Fotos de Commons
+#
+# As categorías de taxon de Commons non só teñen fotos do paxaro: hai mapas de
+# distribución, ilustracións antigas, selos, ovos, esqueletos, exemplares de
+# museo e xente. Isto compárteno a foto principal e a galería, porque o erro é
+# o mesmo nas dúas: a ficha do asubiador chegou a amosar un selo de correos.
+#
+# Ollo co exceso. «nest» non pode estar aquí: unha cegoña no niño É unha boa
+# foto de cegoña. E «ringed» tampouco, porque forma parte de nomes ingleses
+# lexítimos —«Little ringed plover», «Rose-ringed Parakeet»— e descartaba fotos
+# perfectamente válidas.
+TITULO_FÓRA = re.compile(
+    r"\b(map|maps|distribution|range|verbreitung|areal|"
+    r"egg|eggs|nestbox|feather|feathers|track|tracks|pellet|"
+    r"skeleton|skull|bone|bones|specimen|specimens|taxiderm\w*|mounted|"
+    r"stuffed|dead|roadkill|corpse|"
+    r"illustration|drawing|plate|lithograph|engraving|painting|stamp|coin|"
+    r"sonogram|spectrogram|diagram|chart|graph|logo|sign|label|"
+    r"ringing|banding|anillamiento|beringung|baguage|"
+    r"birder|birders|birdwatcher\w*|ornithologist\w*|photographer|"
+    r"cage|caged|captive|captivity|aviary|falconry|falconer)\b",
+    re.IGNORECASE,
+)
+
+# As categorías din o que o título cala, e veñen na mesma petición. Foron elas
+# as que delataron o selo ruso («Birds on stamps of Russia») e a foto dun
+# ornitólogo coa ave na man («Ornithologists»).
+CATEGORIA_FÓRA = re.compile(
+    r"(ornithologist|birdwatch\w*|birder|people with|humans?\b|"
+    r"bird ringing|bird banding|ringing of|banding of|"
+    r"taxidermy|specimens?\b|skeletons?|skulls?|"
+    r"illustrations?|drawings?|paintings?|engravings?|stamps?\b|coins?\b|"
+    r"range maps|distribution maps|"
+    r"in captivity|captive|aviaries|zoos?\b|falconry|"
+    r"museum|collections?)",
+    re.IGNORECASE,
+)
+
+
+def sen_html(texto: str | None) -> str:
+    """O campo de autoría de Commons vén como HTML (ligazóns, etiquetas...)."""
+    limpo = re.sub(r"<[^>]+>", " ", texto or "")
+    return re.sub(r"\s+", " ", html.unescape(limpo)).strip()
+
+
+def licenza_cc_ok(meta: dict) -> bool:
+    """Creative Commons ou dominio público. Sen constancia, non se usa."""
+    url = meta.get("LicenseUrl", {}).get("value") or ""
+    curta = meta.get("LicenseShortName", {}).get("value") or ""
+    return ("creativecommons" in url
+            or "public domain" in curta.lower()
+            or "CC0" in curta)
+
+
+def foto_admisible(titulo: str, categorias: str, meta: dict) -> bool:
+    """Se isto é unha foto do paxaro e se se pode usar."""
+    if TITULO_FÓRA.search(titulo):
+        return False
+    if categorias and CATEGORIA_FÓRA.search(categorias):
+        return False
+    return licenza_cc_ok(meta)
 
 
 def escribe_json(nome: str, data) -> Path:

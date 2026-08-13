@@ -31,6 +31,14 @@ rexeneralo cando se queiran datos frescos ou se engada unha fonte nova.
 # Wikimedia esixe un User-Agent cun contacto real e bloquea os xenéricos
 export PAXARINAS_CONTACTO="o-teu-correo@exemplo.gal"
 
+python etl/todo.py             # TODO en orde, e deixa a data en rexistro.json
+python etl/todo.py --rapido    # salta as fontes lentas (fotos e cantos)
+python etl/todo.py --so build  # unha soa etapa
+```
+
+As etapas, se as queres soltas e na orde correcta:
+
+```bash
 python etl/gbif_especies.py    # especies, taxonomía e nomes (uns minutos)
 python etl/wikimedia_fotos.py  # fotos + autoría (~30 MB, uns 10 minutos)
 python etl/wikidata_nomes.py   # nomes galegos que GBIF non trae
@@ -41,6 +49,8 @@ python etl/zonas.py            # comarcas e as aves de cada unha
 python etl/ebird_hotspots.py   # lugares de observación
 python etl/commons_galeria.py  # galería só en liña: metadatos, non imaxes
 python etl/avonet_rasgos.py    # tamaño, hábitat e dieta (identificación guiada)
+python etl/wikipedia_textos.py # descrición de cada especie
+python etl/iucn_estado.py      # estado de conservación da UICN
 python etl/build.py            # fusiona todo en data/especies.json
 ```
 

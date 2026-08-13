@@ -21,14 +21,43 @@ const dataDatos = computed(() => dataLonga(catalogo.rexistro?.data))
         <span class="marca__lema">As aves de Galicia</span>
       </NuxtLink>
 
+      <!-- Etiquetas curtas a propósito: con cinco entradas, «Que paxaro é?» e
+           «Por comarca» non caben nunha fila de 390 px e ou se parten en tres
+           liñas ou obrigan a desprazar. A pregunta longa segue estando na
+           portada, que é onde ten sitio para respirar. -->
       <nav class="menú">
-        <!-- Vai primeiro e destacado: é a pregunta coa que chega a xente
-             ("que paxaro é este?"), non un filtro máis do catálogo. -->
-        <NuxtLink to="/identificar" class="menú__destacado">Que paxaro é?</NuxtLink>
-        <NuxtLink to="/escoitar">Polo son</NuxtLink>
-        <NuxtLink to="/">Todas</NuxtLink>
-        <NuxtLink to="/mapa">Por comarca</NuxtLink>
-        <NuxtLink to="/vistas">As miñas</NuxtLink>
+        <!-- Primeiro e destacado: é a pregunta coa que chega a xente, non un
+             filtro máis do catálogo. -->
+        <NuxtLink to="/identificar" class="menú__destacado">
+          <svg class="menú__icona" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5 21 21" />
+          </svg>
+          <span>Identificar</span>
+        </NuxtLink>
+        <NuxtLink to="/escoitar">
+          <svg class="menú__icona" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2" />
+          </svg>
+          <span>Polo son</span>
+        </NuxtLink>
+        <NuxtLink to="/">
+          <svg class="menú__icona" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 6h16M4 12h16M4 18h10" />
+          </svg>
+          <span>Todas</span>
+        </NuxtLink>
+        <NuxtLink to="/mapa">
+          <svg class="menú__icona" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 3 3 5.5v15L9 18l6 3 6-2.5v-15L15 6 9 3v15" />
+          </svg>
+          <span>Comarcas</span>
+        </NuxtLink>
+        <NuxtLink to="/vistas">
+          <svg class="menú__icona" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+          <span>As miñas</span>
+        </NuxtLink>
       </nav>
     </header>
 
@@ -84,6 +113,16 @@ const dataDatos = computed(() => dataLonga(catalogo.rexistro?.data))
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 18%), inset 0 -2px 0 var(--toxo);
 }
 
+/* En móbil o menú é icona sobre etiqueta e o punto non cabe ao lado; o fondo
+   propio xa distingue a entrada destacada. Vai aquí e non en base.css porque
+   os estilos con `scoped` levan un atributo que lles dá máis especificidade:
+   desde fóra non se podería anular. */
+@media (max-width: 46rem) {
+  .menú a.menú__destacado::before {
+    display: none;
+  }
+}
+
 /* As dúas ligazóns de servizo van nunha liña propia, separadas do texto de
    atribución: antes ían pegadas ao final do parágrafo e non se vían. */
 .rodape__ligazóns {
@@ -106,7 +145,6 @@ const dataDatos = computed(() => dataLonga(catalogo.rexistro?.data))
 /* De cando son os datos. Discreto, pero presente en todas as páxinas: unha
    guía sen datar non deixa saber se o que le é deste ano ou de fai tres. */
 .rodape__data {
-  margin: 0.35rem 0 0;
   font-size: 0.8rem;
   opacity: 0.75;
 }

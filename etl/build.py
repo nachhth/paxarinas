@@ -317,6 +317,8 @@ def main() -> None:
             "foto": {
                 "mini": foto["mini"],
                 "grande": foto["grande"],
+                "anchoGrande": foto.get("anchoGrande"),
+                "altoGrande": foto.get("altoGrande"),
                 "autor": foto["autor"],
                 "licenza": foto["licenza"],
                 "licenzaUrl": foto["licenzaUrl"],

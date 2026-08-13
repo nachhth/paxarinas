@@ -16,6 +16,13 @@ export interface Foto {
   mini: string
   /** 500 px, para a ficha. */
   grande: string
+  /**
+   * Medidas reais da grande. O 13% das fotos son verticais, e recortalas a un
+   * oco apaisado deixaba fóra a cabeza do paxaro; coas medidas pódese amosar
+   * enteira e reservarlle o oco exacto.
+   */
+  anchoGrande: number | null
+  altoGrande: number | null
   autor: string | null
   licenza: string
   licenzaUrl: string | null

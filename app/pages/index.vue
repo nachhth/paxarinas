@@ -166,6 +166,7 @@ const resultados = computed(() => {
             :src="e.foto.mini"
             :alt="`${nomeMostrado(e)} (${e.cientifico})`"
             class="tarxeta__foto"
+            :style="{ objectPosition: encadre(e.foto) }"
             width="250"
             height="180"
             loading="lazy"

@@ -52,12 +52,16 @@ const outrosNomes = computed(() => {
          recoñecela, así que ten que estar arriba e non ao final da ficha. En
          pantalla ancha vai ao carón; en móbil cae debaixo. -->
     <div class="cabeza">
+      <!-- Coas medidas reais amósase enteira e sen recortar: o 13% das fotos
+           son verticais e nun oco apaisado perdíase a cabeza do paxaro, que é
+           o que serve para identificalo. As medidas van tamén nos atributos,
+           así que o oco queda reservado e a páxina non salta ao cargar. -->
       <figure v-if="especie.foto" class="foto">
         <img
           :src="especie.foto.grande"
           :alt="`${titulo} (${especie.cientifico})`"
-          width="500"
-          height="360"
+          :width="especie.foto.anchoGrande ?? 500"
+          :height="especie.foto.altoGrande ?? 360"
           decoding="async"
         >
         <figcaption>
@@ -297,12 +301,15 @@ const outrosNomes = computed(() => {
   max-width: 500px;
 }
 
+/* Sen `aspect-ratio` nin `object-fit`: a proporción vén dos atributos da imaxe,
+   que agora levan as medidas de verdade. Recortar aquí sería tirar xusto a
+   parte útil dunha foto vertical. O tope de alto evita que unha foto moi
+   alongada empurre todo o resto da ficha fóra da pantalla. */
 .foto img {
   display: block;
-  width: 100%;
-  max-width: 500px;
-  aspect-ratio: 25 / 18;
-  object-fit: cover;
+  width: auto;
+  max-width: min(100%, 500px);
+  max-height: 70vh;
   background: var(--bretema);
   border-radius: var(--raio-g);
   box-shadow: var(--sombra-alta);

@@ -178,6 +178,32 @@ El meta-modelo de área queda fuera: en la conversión oficial pesa 33,6 MB, no
 los 7,1 del espejo. El filtro por lista gallega y mes hace el mismo trabajo por
 86 kB.
 
+## El ETL se ejecuta con un solo comando, y deja fecha
+
+`python etl/todo.py` corre las doce etapas en orden. Admite `--rapido` (salta
+fotos y cantos, que son las lentas), `--so <etapa>` y `--desde <etapa>`. Si una
+fuente falla sigue —son independientes— salvo GBIF, que es la base de todo.
+
+Cada ejecución escribe `etl/out/rexistro.json` con la fecha y el recuento de
+cada fuente, **con fecha por fuente y no solo global**: una ejecución parcial
+mezcla datos de días distintos y eso tiene que verse. `build.py` copia esa fecha
+al catálogo y el pie de todas las páginas dice "Datos actualizados o …".
+
+## Filtrar lo que no es el pájaro
+
+Las categorías de taxón en Commons traen mapas, ilustraciones, huevos,
+esqueletos — y **gente**. El caso que lo destapó: una foto de un ornitólogo con
+el ave en la mano, en la galería de *Circus macrourus*, con título en neerlandés
+y autoría normal. Por el título no había nada que rascar; estaba en
+`Category:Ornithologists`. Las categorías vienen en la misma petición que las
+imágenes, así que filtrar por ellas no cuesta ni una llamada más.
+
+**Cuidado con pasarse.** Un primer intento descartaba también `nests`, y con eso
+se iban fotos de cigüeñas sobre el nido, que son excelentes fotos de cigüeña. Un
+pájaro en su nido sí es el pájaro; un pájaro en la mano de alguien, no. Cada
+término de la lista costó una comprobación, y sigue siendo una heurística:
+habrá más intrusos.
+
 ## Lista personal: `/vistas`
 
 Marcar aves vistas, con fecha, en `localStorage`. **Sin cuentas y sin servidor**:
@@ -254,6 +280,8 @@ Nuxt genera en `.nuxt/`.
 | Wikimedia Commons | 506 fotos con autoría | ✔ CC |
 | OpenStreetMap | Fronteras de las 53 comarcas | ✔ ODbL, atribuida en créditos |
 | AVONET | Tamaño, hábitat y dieta de 513 especies | ✔ CC BY 4.0 |
+| Wikipedia gl/es | Descripción de 493 especies (443 en gallego) | ✔ CC BY-SA |
+| UICN vía Wikidata | Estado de conservación de 479, 32 amenazadas | ✔ Sin clave |
 | eBird | Checklist regional (500 spp), 1720 hotspots | Clave en `.env` |
 | xeno-canto | 374 cantos con autoría | Clave en `.env` |
 | RAG | Nomenclatura normativa | ⚠️ Pendiente de permiso |

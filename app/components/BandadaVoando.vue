@@ -73,20 +73,30 @@ function voa(x: number, y: number) {
 
   const bando: Paxaro[] = []
 
+  // O que falta para saír pola outra banda desde o botón. O percorrido
+  // calcúlase a partir de aquí e non cunha proporción da xanela: se non, un
+  // botón que estea xa preto do bordo bota a bandada fóra en tres décimas e a
+  // animación remata antes de verse.
+  const fuga = (sentido > 0 ? ancho - x : x) + 80
+
   for (let i = 0; i < CANTOS; i++) {
     // Escalonado en cuña: os primeiros saen algo adiantados e a alturas
     // distintas. Todos exactamente do mesmo punto darían un bloque.
     const posto = i / (CANTOS - 1)
-    const cima = -alto * entre(0.42, 0.62)
+
+    // A cima queda dentro da xanela mentres o botón non estea moi arriba: o
+    // arco vese enteiro, non só a subida.
+    const cima = -Math.min(alto * entre(0.34, 0.5), Math.max(140, y - 40))
 
     bando.push({
       id: ++semente,
       estilo: {
         '--x': `${x + sentido * entre(-26, 26)}px`,
         '--y': `${y + entre(-14, 14)}px`,
-        // Percorrido máis largo que a xanela: teñen que saír pola outra banda,
-        // non quedar pousados no bordo. O recorte do contedor encárgase.
-        '--dx': `${sentido * ancho * entre(1.2, 1.55)}px`,
+        // O divisor é a fracción do voo na que o paxaro abandona a pantalla:
+        // entre o 80% e o 92%. Medido, sen isto marchaban aos 700 ms e o arco
+        // remataba fóra de cadro.
+        '--dx': `${(sentido * fuga) / entre(0.82, 0.93)}px`,
         '--cima': `${cima}px`,
         // Rematan baixando: o arco pecha cara ao horizonte do outro lado.
         '--fin': `${cima * entre(0.1, 0.45)}px`,
@@ -98,8 +108,11 @@ function voa(x: number, y: number) {
         '--espello': `${sentido}`,
         '--escala': `${entre(0.85, 1.25)}`,
         '--cor': CORES[i % CORES.length] as string,
-        '--dur': `${Math.round(entre(1040, 1240))}ms`,
-        '--atraso': `${Math.round(posto * entre(120, 210))}ms`,
+        '--dur': `${Math.round(entre(1080, 1220))}ms`,
+        // O escalonado é o que fai que se lea como formación e o que estira o
+        // conxunto ata arredor de 1,3 s. Máis cola e pasaría do segundo e
+        // medio: isto vaise ver vinte veces nunha saída de campo e cansaría.
+        '--atraso': `${Math.round(posto * entre(320, 420))}ms`,
         // Cada un co seu ritmo de aleteo: coordinados parecerían un mecanismo.
         '--aleteo': `${Math.round(entre(170, 260))}ms`,
       },
