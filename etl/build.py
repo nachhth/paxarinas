@@ -67,6 +67,43 @@ def carga_cantos() -> dict[str, dict]:
     return json.loads(ficheiro.read_text(encoding="utf-8"))["cantos"]
 
 
+def carga_rexistro() -> dict:
+    """Cando se descargaron os datos, para poder dicilo na web.
+
+    Se non hai rexistro é que se executaron os guións a man en vez de
+    `etl/todo.py`. Non é un erro, pero a web non poderá datar os datos.
+    """
+    ficheiro = OUT_DIR / "rexistro.json"
+    if not ficheiro.exists():
+        log("Aviso: sen rexistro.json. O catálogo non levará data. "
+            "Executa `python etl/todo.py` para xeralo.")
+        return {}
+    datos = json.loads(ficheiro.read_text(encoding="utf-8"))
+    return {
+        "data": datos.get("data"),
+        "completa": datos.get("completa", False),
+        "fontes": {k: v.get("actualizado") for k, v in datos.get("fontes", {}).items()},
+    }
+
+
+def carga_textos() -> dict[str, dict]:
+    """O parágrafo que conta que é cada paxaro."""
+    ficheiro = OUT_DIR / "wikipedia_textos.json"
+    if not ficheiro.exists():
+        log("Aviso: sen wikipedia_textos.json. As fichas irán sen descrición.")
+        return {}
+    return json.loads(ficheiro.read_text(encoding="utf-8"))["textos"]
+
+
+def carga_estados() -> dict[str, dict]:
+    """Categoría da Lista Vermella da UICN."""
+    ficheiro = OUT_DIR / "iucn_estado.json"
+    if not ficheiro.exists():
+        log("Aviso: sen iucn_estado.json. Non haberá estado de conservación.")
+        return {}
+    return json.loads(ficheiro.read_text(encoding="utf-8"))["estados"]
+
+
 def carga_rasgos() -> dict[str, dict]:
     """Tamaño, hábitat e dieta: o que permite buscar sen saber o nome."""
     ficheiro = OUT_DIR / "avonet_rasgos.json"
@@ -227,6 +264,9 @@ def main() -> None:
     fenoloxia = carga_fenoloxia()
     cantos = carga_cantos()
     rasgos = carga_rasgos()
+    textos = carga_textos()
+    estados = carga_estados()
+    rexistro = carga_rexistro()
 
     catalogo = []
     sen_aceptar = 0
@@ -295,6 +335,10 @@ def main() -> None:
             # Sen isto non se pode buscar sen saber o nome, que é o uso real
             # da app: alguén ve un paxaro e quere chegar a el.
             "rasgos": rasgos.get(sci),
+            # Wikipedia é CC BY-SA: o texto vai coa súa ligazón ao artigo, que
+            # é o que esixe a licenza e ademais dá onde seguir lendo.
+            "descricion": textos.get(sci),
+            "conservacion": estados.get(sci),
             # Os meses son dato bruto de GBIF; o estatus é unha estimación
             # feita sobre eles. Van xuntos para que a app poida amosar a
             # evidencia ao lado da interpretación.
@@ -318,7 +362,10 @@ def main() -> None:
                        + (["Wikidata"] if nomes_wd else [])
                        + (["Wikimedia Commons"] if fotos else [])
                        + (["xeno-canto"] if cantos else [])
-                       + (["AVONET"] if rasgos else [])),
+                       + (["AVONET"] if rasgos else [])
+                       + (["Wikipedia"] if textos else [])
+                       + (["UICN"] if estados else [])),
+            "rexistro": rexistro,
             "avisoFenoloxia": "Estatus estimado a partir da distribución mensual "
                               "das citas de GBIF, non determinado por criterio experto.",
             "total": len(catalogo),
@@ -343,6 +390,12 @@ def main() -> None:
     con_rasgos = sum(1 for e in catalogo if e["rasgos"])
     log(f"  con rasgos:      {con_rasgos} ({con_rasgos / len(catalogo):.0%})")
     log(f"  con parecidas:   {con_parecidas} ({con_parecidas / len(catalogo):.0%})")
+    con_texto = sum(1 for e in catalogo if e["descricion"])
+    log(f"  con descrición:  {con_texto} ({con_texto / len(catalogo):.0%})")
+    con_estado = sum(1 for e in catalogo if e["conservacion"])
+    ameazadas = sum(1 for e in catalogo if (e["conservacion"] or {}).get("ameazada"))
+    log(f"  con estado UICN: {con_estado} ({con_estado / len(catalogo):.0%}), "
+        f"{ameazadas} ameazadas")
     log(f"  descartadas por taxonomía non aceptada: {sen_aceptar}")
     log(f"\nEscrito en {DESTINO.relative_to(RAIZ)}")
 

@@ -257,6 +257,34 @@ input[type='radio'] {
   gap: 0.35rem;
 }
 
+/* Escribiuse para dous enlaces e xa son cinco: en móbil partíanse en tres liñas
+   cada un e a cabeceira convertíase nun bloque. Agora é unha fila propia que se
+   despraza en horizontal, coas etiquetas sen romper. Sangra ata os bordes para
+   que se vexa que hai máis á dereita. */
+@media (max-width: 46rem) {
+  .menú {
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    /* Que o desprazamento pare en cada botón e non a medio. */
+    scroll-snap-type: x proximity;
+  }
+
+  .menú::-webkit-scrollbar {
+    display: none;
+  }
+
+  .menú a {
+    flex: none;
+    padding: 0 0.7rem;
+    scroll-snap-align: start;
+  }
+}
+
 /* Alto de 44 px: son os dous enlaces que máis se tocan e van no borde
    superior, onde o dedo acerta peor. */
 .menú a {
@@ -268,6 +296,8 @@ input[type='radio'] {
   color: var(--cabeceira-tinta);
   text-decoration: none;
   font-size: 0.9rem;
+  /* Sen isto «Que paxaro é?» parte en tres liñas nunha pantalla estreita. */
+  white-space: nowrap;
   transition: background var(--saída);
 }
 

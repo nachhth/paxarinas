@@ -97,6 +97,26 @@ export interface Rasgos {
   nichoOrixe: string | null
 }
 
+/** Parágrafo de presentación, de Wikipedia. CC BY-SA: a ligazón é obrigatoria. */
+export interface Descricion {
+  texto: string
+  /** 'gl' ou 'es': hai 51 especies sen artigo en galego. */
+  idioma: string
+  titulo: string
+  url: string
+}
+
+/** Categoría da Lista Vermella da UICN. */
+export interface Conservacion {
+  /** LC, NT, VU, EN, CR, EW, EX, DD, NE. */
+  codigo: string
+  texto: string
+  /** 0 = pouco preocupante … 6 = extinguida. -1 = sen avaliar. */
+  gravidade: number
+  /** Vulnerable ou peor. */
+  ameazada: boolean
+}
+
 export interface Especie {
   slug: string
   cientifico: string
@@ -108,6 +128,8 @@ export interface Especie {
   foto: Foto | null
   canto: Canto | null
   rasgos: Rasgos | null
+  descricion: Descricion | null
+  conservacion: Conservacion | null
   fenoloxia: Fenoloxia | null
   /** Nº de ocorrencias rexistradas en GBIF para Galicia. Serve de proxy de abundancia. */
   citas: number
@@ -166,9 +188,20 @@ export interface Zonas {
   zonas: Zona[]
 }
 
+/** Cando se descargaron os datos, para poder datar o que se amosa. */
+export interface Rexistro {
+  /** AAAA-MM-DD da última execución de `etl/todo.py`. */
+  data?: string
+  /** false se se executaron só algunhas fontes: hai datos de distintas datas. */
+  completa?: boolean
+  /** Data de cada fonte por separado. */
+  fontes?: Record<string, string>
+}
+
 export interface Catalogo {
   version: number
   fontes: string[]
+  rexistro: Rexistro
   avisoFenoloxia: string
   total: number
   especies: Especie[]

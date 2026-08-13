@@ -89,6 +89,34 @@ const outrosNomes = computed(() => {
       queda por encher.
     </p>
 
+    <section v-if="especie.descricion" class="bloque">
+      <h2>Que é</h2>
+      <p class="descricion">{{ especie.descricion.texto }}</p>
+      <p class="fonte">
+        <a :href="especie.descricion.url">
+          Wikipedia en {{ especie.descricion.idioma === 'gl' ? 'galego' : 'castelán' }}
+        </a>, CC BY-SA.
+      </p>
+    </section>
+
+    <section v-if="especie.conservacion" class="bloque">
+      <h2>Estado de conservación</h2>
+      <p class="estado">
+        <span
+          class="estado__pílula"
+          :class="{ 'estado__pílula--ameaza': especie.conservacion.ameazada }"
+        >
+          {{ especie.conservacion.codigo }}
+        </span>
+        {{ especie.conservacion.texto }}
+      </p>
+      <p class="fonte">
+        Lista Vermella da
+        <a href="https://www.iucnredlist.org">UICN</a>, vía Wikidata. É a
+        avaliación mundial da especie, non a súa situación en Galicia.
+      </p>
+    </section>
+
     <section v-if="especie.rasgos" class="bloque">
       <h2>Como é</h2>
       <dl class="datos">
@@ -328,6 +356,40 @@ const outrosNomes = computed(() => {
    Como esqueleto e non como rectángulo morto: así dise que vén algo. */
 .suave {
   color: var(--tinta-suave);
+}
+
+.descricion {
+  margin: 0;
+  max-width: 44rem;
+  text-wrap: pretty;
+}
+
+.estado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+/* O código da UICN vai como pílula: é unha etiqueta normalizada, non prosa.
+   Só se tinta de alerta a partir de «vulnerable»; pintar de vermello un
+   «pouco preocupante» sería alarmar por nada. */
+.estado__pílula {
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  background: var(--fento-tenue);
+  color: var(--fento);
+  border: 1px solid color-mix(in srgb, var(--fento) 30%, transparent);
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+}
+
+.estado__pílula--ameaza {
+  background: color-mix(in srgb, var(--toxo) 22%, transparent);
+  color: color-mix(in srgb, var(--toxo) 70%, var(--tinta));
+  border-color: color-mix(in srgb, var(--toxo) 45%, transparent);
 }
 
 /* A nota de fonte vai antes da lista neste bloque: di baixo que criterio está

@@ -1,3 +1,13 @@
+<script setup lang="ts">
+/**
+ * A data dos datos vai no rodapé de todas as páxinas. Nunha guía de natureza
+ * importa saber de cando é o que estás a ler: as citas, a fenoloxía e o estado
+ * de conservación cambian, e un catálogo sen datar envellece en silencio.
+ */
+const catalogo = useCatalogo()
+const dataDatos = computed(() => dataLonga(catalogo.rexistro?.data))
+</script>
+
 <template>
   <div class="sitio">
     <!-- Con teclado, saltar dous enlaces de menú en cada páxina é pouco; con
@@ -31,6 +41,9 @@
         Proxecto libre e sen ánimo de lucro. Datos de
         <a href="https://www.gbif.org">GBIF</a>, fotografías de
         <a href="https://commons.wikimedia.org">Wikimedia Commons</a>.
+      </p>
+      <p v-if="dataDatos" class="rodape__data">
+        Datos actualizados o {{ dataDatos }}.
       </p>
       <p class="rodape__ligazóns">
         <NuxtLink to="/creditos">Créditos e licenzas</NuxtLink>
@@ -88,6 +101,14 @@
   align-items: center;
   padding: 0 0.15rem;
   border-radius: var(--raio-p);
+}
+
+/* De cando son os datos. Discreto, pero presente en todas as páxinas: unha
+   guía sen datar non deixa saber se o que le é deste ano ou de fai tres. */
+.rodape__data {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  opacity: 0.75;
 }
 
 .rodape__ligazóns span {

@@ -83,12 +83,21 @@ def artigos(nomes: list[str]) -> dict[str, dict[str, str]]:
     return atopados
 
 
+# Marcas de edición de Wikipedia que sobreviven ao extracto en texto plano.
+# Non se quitan todos os corchetes: hai nomes e aclaracións lexítimas dentro.
+EDITORIAL = re.compile(
+    r"\[\s*(?:\d+|cómpre referencia|cita requerida|cita requirida|sen referencias"
+    r"|sic|nota\s*\d*|aclaración requerida|necesaria cita)\s*\]",
+    re.IGNORECASE,
+)
+
+
 def limpa(texto: str) -> str:
     """Quita o que sobra da entradiña dun artigo de Wikipedia."""
-    # Pronuncias, transliteracións e notas entre parénteses ao comezo.
-    texto = re.sub(r"\s+", " ", texto).strip()
-    # Referencias que ás veces sobreviven ao extracto en texto plano.
-    texto = re.sub(r"\[\d+\]", "", texto)
+    texto = EDITORIAL.sub("", texto)
+    texto = re.sub(r"\s+", " ", texto)
+    # A marca adoita quedar pegada a unha coma ou a un punto: «laverca ,».
+    texto = re.sub(r"\s+([,.;:])", r"\1", texto)
     return texto.strip()
 
 

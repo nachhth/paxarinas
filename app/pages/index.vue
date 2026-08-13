@@ -82,9 +82,16 @@ const ordes = computed(() => {
   return [...conta.entries()].sort((a, b) => b[1] - a[1])
 })
 
+/**
+ * A busca vai contra todos os nomes, non só o galego: moita xente coñece o
+ * paxaro en castelán ou en inglés e chega buscando por aí. Tamén contra a
+ * familia e a orde, que serven para atopar grupos enteiros.
+ */
 function textoBuscable(e: Especie) {
-  return normaliza([e.cientifico, e.nomes.gl, e.nomes.es, e.nomes.en, e.familia]
-    .filter(Boolean).join(' '))
+  return normaliza([
+    e.cientifico, e.nomes.gl, e.nomes.es, e.nomes.en, e.nomes.pt,
+    e.familia, e.orde,
+  ].filter(Boolean).join(' '))
 }
 
 const resultados = computed(() => {
@@ -125,8 +132,8 @@ const resultados = computed(() => {
         v-model="busca"
         type="search"
         class="busca"
-        placeholder="Buscar por nome ou familia…"
-        aria-label="Buscar especie"
+        placeholder="Buscar en galego, castelán, inglés ou latín…"
+        aria-label="Buscar especie por nome en calquera idioma, familia ou orde"
       >
 
       <select v-model="mesEscollido" class="selector" aria-label="Filtrar por mes">
