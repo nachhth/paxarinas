@@ -44,10 +44,14 @@ const senEspazo = computed(() =>
 
 onMounted(comprobar)
 
+/**
+ * `analizado` só se marca se se analizou algo de verdade: un permiso denegado ou
+ * unha gravación curta de máis xa din o seu na súa mensaxe de erro, e sen isto
+ * pintábase tamén «non se recoñeceu ningunha especie, proba a achegarte».
+ */
 async function aoGravar() {
   analizado.value = false
-  await gravar(segundos.value, soDoMes.value, soHabituais.value)
-  analizado.value = true
+  analizado.value = await gravar(segundos.value, soDoMes.value, soHabituais.value)
 }
 </script>
 

@@ -60,7 +60,7 @@ import sys
 from pathlib import Path
 
 from common import (OUT_DIR, escribe_json, foto_admisible, get_json, log,
-                    sen_html, slug)
+                    sen_html, slug, url_segura)
 
 RAIZ = Path(__file__).resolve().parent.parent
 DIR_GALERIA = RAIZ / "public" / "data" / "galeria"
@@ -315,13 +315,19 @@ def _extrae(paxina: dict, extra_categoria: str = "") -> dict | None:
         valor = meta.get(clave, {}).get("value")
         return sen_html(valor) if valor else None
 
+    # A imaxe e mais os dous enlaces só se publican se son http(s): `extmetadata`
+    # sae do wikitexto que edita calquera, e a ficha pon eses valores nun `href`.
+    miniatura = url_segura(info["thumburl"].split("?")[0])
+    if not miniatura:
+        return None
+
     return {
         "ficheiro": titulo,
-        "url": info["thumburl"].split("?")[0],
+        "url": miniatura,
         "autor": campo("Artist"),
         "licenza": campo("LicenseShortName"),
-        "licenzaUrl": meta.get("LicenseUrl", {}).get("value"),
-        "orixe": info.get("descriptionurl"),
+        "licenzaUrl": url_segura(meta.get("LicenseUrl", {}).get("value")),
+        "orixe": url_segura(info.get("descriptionurl")),
     }
 
 
@@ -369,9 +375,9 @@ def engade_grandes(fotos: list[dict]) -> None:
         grandes = {}
         for px in _paxinas(p, ANCHO_GRANDE).values():
             info = (px.get("imageinfo") or [{}])[0]
-            if info.get("thumburl"):
-                grandes[px["title"].removeprefix("File:")] = \
-                    info["thumburl"].split("?")[0]
+            grande = url_segura((info.get("thumburl") or "").split("?")[0])
+            if grande:
+                grandes[px["title"].removeprefix("File:")] = grande
         for f in lote:
             # Se a orixinal é menor ca 960, Commons non a amplía: vale a mesma.
             f["urlGrande"] = grandes.get(f["ficheiro"], f["url"])

@@ -12,12 +12,14 @@ import type { Especie } from '~/types/catalogo'
  *
  * Vai a issues de GitHub: sen infraestrutura que manter e coa conversa pública.
  * A contrapartida é que fai falta conta, e moita xente que sabe de paxaros non
- * a ten — por iso hai tamén correo.
+ * a ten. Aquí non se pon un correo como alternativa: iría en claro nas 517
+ * fichas dun sitio estático, que é un enderezo servido en bandexa a calquera
+ * rastrexador de spam. Se algún día fai falta esa segunda vía, que sexa un alias
+ * dedicado ou un formulario, non a conta persoal de ninguén.
  */
 const props = defineProps<{ especie?: Especie }>()
 
 const REPO = 'https://github.com/nachhth/paxarinas'
-const CORREO = 'itharigen@aracnosoft.es'
 
 const url = computed(() =>
   import.meta.client ? window.location.href : '')
@@ -51,18 +53,12 @@ const corpo = computed(() => {
 const ligazonGitHub = computed(() =>
   `${REPO}/issues/new?title=${encodeURIComponent(asunto.value)}`
   + `&body=${encodeURIComponent(corpo.value)}`)
-
-const ligazonCorreo = computed(() =>
-  `mailto:${CORREO}?subject=${encodeURIComponent(asunto.value)}`
-  + `&body=${encodeURIComponent(corpo.value)}`)
 </script>
 
 <template>
   <p class="avisar">
     Ves algo mal nesta páxina?
-    <a :href="ligazonGitHub" rel="noopener">Avísame en GitHub</a>
-    <span aria-hidden="true"> · </span>
-    <a :href="ligazonCorreo">ou por correo</a>
+    <a :href="ligazonGitHub" rel="noopener">Avísao en GitHub</a>
   </p>
 </template>
 

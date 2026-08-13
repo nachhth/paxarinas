@@ -64,16 +64,6 @@ watch(busca, () => {
 })
 onBeforeUnmount(() => clearTimeout(atraso))
 
-/** Un mes conta como época da especie se recolle polo menos a metade do que
-    lle tocaría cunha presenza uniforme (8,3%). */
-const LIMIAR_MES = 4
-
-function estaNoMes(e: Especie, mes: number) {
-  const f = e.fenoloxia
-  if (!f || !f.fiable) return false
-  return (f.meses[mes] ?? 0) >= LIMIAR_MES
-}
-
 const ordes = computed(() => {
   const conta = new Map<string, number>()
   for (const e of catalogo.especies) {
@@ -99,7 +89,9 @@ const resultados = computed(() => {
   return catalogo.especies.filter((e) => {
     if (e.rara && !incluirRaras.value) return false
     if (ordeEscollida.value && e.orde !== ordeEscollida.value) return false
-    if (mesEscollido.value !== '' && !estaNoMes(e, Number(mesEscollido.value))) return false
+    // `false`: aquí o filtro está para acurtar 517 fichas, así que as especies
+    // sen fenoloxía fiable quedan fóra. Ver `veseNoMes`.
+    if (mesEscollido.value !== '' && !veseNoMes(e, Number(mesEscollido.value), false)) return false
     if (termo && !textoBuscable(e).includes(termo)) return false
     return true
   })

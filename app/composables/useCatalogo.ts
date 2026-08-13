@@ -44,3 +44,46 @@ export function encadre(foto: { anchoGrande: number | null, altoGrande: number |
 export function nomeMostrado(e: Especie) {
   return e.nomes.gl ?? e.nomes.es ?? e.nomes.en ?? e.cientifico
 }
+
+/**
+ * Porcentaxe das citas anuais que ten que caer nun mes para dalo por presente.
+ *
+ * Nunha especie repartida por igual cada mes levaría o 8,3%: esíxese a metade.
+ * Vive aquí e non en cada páxina porque estaba escrito tres veces con dous
+ * valores distintos —a portada e o identificador esixían 4, o mapa 3— e a mesma
+ * especie aparecía no filtro de agosto nunha páxina e non na outra. Non era un
+ * matiz: eran dous filtros que se presentan á xente coma un só.
+ */
+export const LIMIAR_MES = 4
+
+/**
+ * Vese esta especie no mes dado?
+ *
+ * `senDatos` é o que se responde cando a fenoloxía non é fiable (menos de 50
+ * citas), e as dúas respostas son lexítimas segundo quen pregunte:
+ *
+ * - `true` no identificador e no mapa, onde a lista xa vén acotada por outros
+ *   criterios: descartar unha especie por non saber dela sería inventar.
+ * - `false` na portada, onde este filtro serve para acurtar 517 fichas: meter aí
+ *   todas as que non teñen dato deixaríao sen efecto.
+ */
+export function veseNoMes(e: Especie, mes: number, senDatos = true): boolean {
+  const f = e.fenoloxia
+  if (!f || !f.fiable) return senDatos
+  return (f.meses[mes] ?? 0) >= LIMIAR_MES
+}
+
+/**
+ * A URL, se se pode poñer nun `href` sen perigo; se non, `null`.
+ *
+ * As licenzas e as páxinas de orixe das fotos veñen de `extmetadata` de Commons,
+ * que sae das plantillas do wikitexto de cada ficheiro: edítaas calquera. Vue
+ * non sanea `href`, así que un `javascript:` alí sería código executable a un
+ * clic. O ETL xa filtra por esquema ao xerar os datos (`etl/common.py`), pero
+ * isto compróbase tamén aquí a propósito: o catálogo regenérase só e vai
+ * versionado, e a última liña de defensa ten que estar onde se pinta.
+ */
+export function ligazon(url: string | null | undefined): string | null {
+  if (!url) return null
+  return /^https?:\/\//i.test(url.trim()) ? url : null
+}

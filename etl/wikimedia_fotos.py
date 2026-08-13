@@ -25,7 +25,7 @@ import urllib.parse
 from pathlib import Path
 
 from common import (OUT_DIR, descarga_ficheiro, escribe_json, foto_admisible,
-                    get_json, log, sen_html, slug)
+                    get_json, log, sen_html, slug, url_segura)
 
 RAIZ = Path(__file__).resolve().parent.parent
 DIR_FOTOS = RAIZ / "public" / "media" / "fotos"
@@ -258,8 +258,10 @@ def main() -> None:
             "ficheiro": ficheiro,
             "autor": info["autor"],
             "licenza": info["licenza"],
-            "licenzaUrl": info["licenzaUrl"],
-            "orixe": info["descricionUrl"],
+            # As dúas van a un `href` na ficha e veñen de `extmetadata`, que sae
+            # do wikitexto que edita calquera: só se publican se son http(s).
+            "licenzaUrl": url_segura(info["licenzaUrl"]),
+            "orixe": url_segura(info["descricionUrl"]),
             "grande": f"/media/fotos/{s}-{ANCHO_GRANDE}{extension(ficheiro)}",
             "mini": f"/media/fotos/{s}-{ANCHO_MINI}{extension(ficheiro)}",
             # Medidas reais da grande: permiten reservarlle o oco exacto e

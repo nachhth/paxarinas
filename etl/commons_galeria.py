@@ -26,7 +26,7 @@ import re
 from pathlib import Path
 
 from common import (OUT_DIR, escribe_json, foto_admisible, get_json, log,
-                    sen_html, slug)
+                    sen_html, slug, url_segura)
 
 RAIZ = Path(__file__).resolve().parent.parent
 DIR_GALERIA = RAIZ / "public" / "data" / "galeria"
@@ -80,14 +80,21 @@ def fotos_de(sci: str, ancho: int) -> list[dict]:
             valor = meta.get(clave, {}).get("value")
             return sen_html(valor) if valor else None
 
+        # A miniatura non se pode publicar se non é http(s): sería unha imaxe
+        # que non carga, ou pior.
+        miniatura = url_segura(info["thumburl"].split("?")[0])
+        if not miniatura:
+            continue
+
         candidatas.append({
             "ficheiro": titulo,
             # Sen os parámetros de seguimento que engade a API.
-            "url": info["thumburl"].split("?")[0],
+            "url": miniatura,
             "autor": campo("Artist"),
             "licenza": campo("LicenseShortName"),
-            "licenzaUrl": meta.get("LicenseUrl", {}).get("value"),
-            "orixe": info.get("descriptionurl"),
+            # `LicenseUrl` e mais a páxina de orixe van a un `href`: só http(s).
+            "licenzaUrl": url_segura(meta.get("LicenseUrl", {}).get("value")),
+            "orixe": url_segura(info.get("descriptionurl")),
         })
 
     return candidatas
@@ -128,7 +135,7 @@ def main() -> None:
             for c in escollidas:
                 # Se a orixinal é máis pequena ca 960 px, Commons non a amplía e
                 # devolve o que ten: nese caso vale a mesma da grella.
-                c["urlGrande"] = grandes.get(c["ficheiro"], c["url"])
+                c["urlGrande"] = url_segura(grandes.get(c["ficheiro"])) or c["url"]
 
         if not escollidas:
             sen_ningunha.append(sci)

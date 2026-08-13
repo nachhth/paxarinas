@@ -25,9 +25,11 @@ import os
 import shutil
 import subprocess
 import sys
+import urllib.parse
 from pathlib import Path
 
-from common import OUT_DIR, descarga_ficheiro, escribe_json, get_json, log, slug
+from common import (OUT_DIR, descarga_ficheiro, escribe_json, get_json, log,
+                    slug, url_segura)
 
 RAIZ = Path(__file__).resolve().parent.parent
 DIR_CANTOS = RAIZ / "public" / "media" / "cantos"
@@ -52,11 +54,30 @@ AMBITOS = [
 DURACION = 15
 
 
-def licenza_valida(url: str | None) -> bool:
-    """Rexeita as licenzas sen obra derivada: imos recortar e recodificar."""
+def licenza_url(url: str | None) -> str | None:
+    """A URL da licenza, se é unha licenza de Creative Commons que nos serve.
+
+    Devolve `None` para as licenzas sen obra derivada (imos recortar e
+    recodificar) e para calquera cousa que non sexa unha URL de creativecommons.org.
+
+    Compróbase o anfitrión, e non «contén creativecommons.org», que era o que
+    había antes: esta URL vai a un `href` na ficha, e unha cadea como
+    `javascript:x//creativecommons.org` pasaba a proba e quedaba nun enlace
+    executable. Admítese tamén a forma sen esquema, que é como a devolveron
+    algunhas versións da API.
+    """
     if not url:
-        return False
-    return "creativecommons.org" in url and "-nd" not in url.lower()
+        return None
+    limpo = url.strip()
+    if limpo.startswith("//"):
+        limpo = f"https:{limpo}"
+    limpo = url_segura(limpo)
+    if not limpo:
+        return None
+    anfitrion = urllib.parse.urlparse(limpo).hostname or ""
+    if anfitrion != "creativecommons.org" and not anfitrion.endswith(".creativecommons.org"):
+        return None
+    return None if "-nd" in limpo.lower() else limpo
 
 
 def puntua(rec: dict) -> tuple:
@@ -81,7 +102,7 @@ def busca_gravacion(cientifico: str, clave: str) -> dict | None:
         data = get_json(API, {"query": consulta, "key": clave})
 
         candidatas = [r for r in data.get("recordings", [])
-                      if licenza_valida(r.get("lic")) and r.get("file")]
+                      if licenza_url(r.get("lic")) and url_segura(r.get("file"))]
         if not candidatas:
             continue
 
@@ -154,8 +175,9 @@ def main() -> None:
             "slug": s,
             "ficheiro": f"/media/cantos/{s}.opus",
             "autor": rec.get("rec"),
-            "licenza": rec.get("lic"),
-            "orixe": rec.get("url"),
+            # As dúas van a un `href` na ficha: só se publican se son http(s).
+            "licenza": licenza_url(rec.get("lic")),
+            "orixe": url_segura(rec.get("url")),
             "lugar": rec.get("loc"),
             "pais": rec.get("cnt"),
             "tipo": rec.get("type"),

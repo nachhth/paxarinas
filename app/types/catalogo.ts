@@ -161,6 +161,12 @@ export interface Especie {
   rasgos: Rasgos | null
   descricion: Descricion | null
   conservacion: Conservacion | null
+  /**
+   * Grupos de plumaxe que ten a galería desta especie. Baleiro na maioría.
+   * Está no catálogo, e non só no ficheiro da galería, para que a ficha poida
+   * avisar sen agardar a que ninguén prema o botón.
+   */
+  plumaxes: Plumaxe[]
   fenoloxia: Fenoloxia | null
   /** Nº de ocorrencias rexistradas en GBIF para Galicia. Serve de proxy de abundancia. */
   citas: number

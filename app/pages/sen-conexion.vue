@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { MotivoOmision } from '~/composables/usePrecargaSon'
+
 const catalogo = useCatalogo()
 
 useHead({ title: 'Uso sen conexión — Paxariñas' })
@@ -14,6 +16,15 @@ const usado = ref<number | null>(null)
 
 /** Precarga do modelo de son: baixa soa, agás que se apague aquí. */
 const precargaSonActiva = ref(true)
+
+/**
+ * Por que non vai baixar soa, se é o caso. Non é un detalle técnico de adorno:
+ * a promesa desta páxina é que non se gastan os datos de ninguén, e en Firefox e
+ * Safari —que non din nada da conexión— iso significa non baixar nada. Se non se
+ * dixese aquí, quedaría un «báixase só» que non se cumpre e un botón que parece
+ * redundante.
+ */
+const motivoPrecarga = ref<MotivoOmision | null>(null)
 
 /**
  * O modelo de son ten botón propio e non entra no de arriba.
@@ -66,6 +77,7 @@ async function baixarModelo() {
 onMounted(async () => {
   usado.value = await espazoUsado()
   precargaSonActiva.value = preferenciaPrecarga() === 'auto'
+  motivoPrecarga.value = motivoOmision()
   await revisaModelo()
 })
 watch(precargaSonActiva, (v) => gardaPreferenciaPrecarga(v ? 'auto' : 'nunca'))
@@ -167,10 +179,10 @@ watch(estado, async (v) => {
         fotos e os cantos xuntos, e hai quen nunca vai usar o identificador.
       </p>
       <p>
-        Para que estea listo cando o precises, báixase só en segundo plano
-        despois de abrir a app — pero <strong>nunca con datos móbiles lentos nin
-        co aforro de datos activado</strong>: nesas condicións agarda a que
-        teñas wifi.
+        Para que estea listo cando o precises, pode baixarse só en segundo plano
+        despois de abrir a app — pero <strong>só se o navegador confirma que a
+        conexión é boa e non medida</strong>. Se non o pode confirmar, non se
+        baixa nada: quedas ti co botón.
       </p>
 
       <!-- Todo isto le a Cache API e a preferencia gardada, que no prerender
@@ -180,6 +192,24 @@ watch(estado, async (v) => {
           <input v-model="precargaSonActiva" type="checkbox">
           Baixar o modelo de son automaticamente
         </label>
+
+        <p v-if="precargaSonActiva && motivoPrecarga && modeloEstado !== 'feito'" class="nota">
+          <template v-if="motivoPrecarga === 'descoñecida'">
+            Este navegador non deixa saber se estás en wifi ou en datos, así que
+            <strong>agora mesmo non se vai baixar soa</strong>. Se estás en wifi,
+            báixao co botón de aquí abaixo.
+          </template>
+          <template v-else-if="motivoPrecarga === 'aforro'">
+            Tes o aforro de datos activado, así que non se vai baixar soa.
+          </template>
+          <template v-else-if="motivoPrecarga === 'datos'">
+            Estás con datos móbiles, así que non se vai baixar soa. Agarda a ter
+            wifi ou báixao co botón, se che dá igual gastalos.
+          </template>
+          <template v-else>
+            A conexión de agora é lenta de máis para baixala soa.
+          </template>
+        </p>
 
         <p v-if="modeloEstado === 'comprobando'" class="nota">
           Mirando se xa o tes…

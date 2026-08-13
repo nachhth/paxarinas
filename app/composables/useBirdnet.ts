@@ -118,6 +118,8 @@ export function useBirdnet() {
 
   let gravadora: MediaRecorder | null = null
   let pista: MediaStream | null = null
+  let crono: ReturnType<typeof setInterval> | null = null
+  let corte: ReturnType<typeof setTimeout> | null = null
 
   function pedir<T = any>(msg: Record<string, unknown>, transfer: Transferable[] = []): Promise<T> {
     if (!traballador) return Promise.reject(new Error('o worker non está en marcha'))
@@ -221,9 +223,18 @@ export function useBirdnet() {
     }
   }
 
-  /** Grava do micrófono `segundos` e analiza. */
-  async function gravar(segundos: number, soDoMes: boolean, soHabituais: boolean) {
-    if (estado.value !== 'listo') return
+  /**
+   * Grava do micrófono `segundos` e analiza.
+   *
+   * Devolve se se chegou a analizar algo de verdade. A páxina precísao: se non,
+   * un permiso de micrófono denegado deixaba a lista de resultados baleira e
+   * pintaba «non se recoñeceu ningunha especie, proba a achegarte» xusto debaixo
+   * do erro real, aconsellando sobre unha gravación que nunca existiu.
+   */
+  async function gravar(
+    segundos: number, soDoMes: boolean, soHabituais: boolean,
+  ): Promise<boolean> {
+    if (estado.value !== 'listo') return false
     erro.value = null
     deteccions.value = []
     segundosGravados.value = 0
@@ -243,7 +254,7 @@ export function useBirdnet() {
       erro.value = e?.name === 'NotAllowedError'
         ? 'Non hai permiso para usar o micrófono.'
         : `Non se puido abrir o micrófono: ${e?.message ?? e}`
-      return
+      return false
     }
 
     estado.value = 'gravando'
@@ -256,9 +267,12 @@ export function useBirdnet() {
         gravadora.onerror = () => reject(new Error('fallou a gravación'))
         gravadora.onstop = () => resolve(new Blob(anacos, { type: gravadora?.mimeType }))
         gravadora.start()
-        const conta = setInterval(() => { segundosGravados.value += 0.25 }, 250)
-        setTimeout(() => {
-          clearInterval(conta)
+        // O contador e o corte párase os dous en `deténCronos`, e non só dentro
+        // do `setTimeout`: premendo «Parar» aos 2 s dunha gravación de 30, o
+        // intervalo seguía vivo os 28 restantes e a seguinte gravación contaba o
+        // dobre de rápido. Tamén quedaba correndo ao saír da páxina.
+        crono = setInterval(() => { segundosGravados.value += 0.25 }, 250)
+        corte = setTimeout(() => {
           if (gravadora?.state === 'recording') gravadora.stop()
         }, segundos * 1000)
       })
@@ -266,20 +280,31 @@ export function useBirdnet() {
       pista.getTracks().forEach(t => t.stop())
       pista = null
       estado.value = 'analizando'
-      await analizar(gravado, soDoMes, soHabituais)
+      return await analizar(gravado, soDoMes, soHabituais)
     } catch (e: any) {
       pista?.getTracks().forEach(t => t.stop())
       pista = null
       erro.value = e?.message ?? String(e)
       estado.value = 'listo'
+      return false
+    } finally {
+      deténCronos()
     }
+  }
+
+  function deténCronos() {
+    if (crono !== null) { clearInterval(crono); crono = null }
+    if (corte !== null) { clearTimeout(corte); corte = null }
   }
 
   function parar() {
     if (gravadora?.state === 'recording') gravadora.stop()
   }
 
-  async function analizar(son: Blob, soDoMes: boolean, soHabituais: boolean) {
+  /** Devolve se se analizou de verdade (ver `gravar`). */
+  async function analizar(
+    son: Blob, soDoMes: boolean, soHabituais: boolean,
+  ): Promise<boolean> {
     // Decodifícase nun contexto de 48 kHz: así o remostrexo faino o navegador,
     // que é quen mellor o sabe facer, e o modelo recibe sempre o mesmo ritmo.
     const bruto = await son.arrayBuffer()
@@ -291,7 +316,7 @@ export function useBirdnet() {
     if (nFragmentos < 1) {
       erro.value = `Fan falta polo menos 3 segundos de son (houbo ${(canle.length / SAMPLE_RATE).toFixed(1)} s).`
       estado.value = 'listo'
-      return
+      return false
     }
     const pcm = canle.slice(0, nFragmentos * MOSTRAS_FRAGMENTO)
 
@@ -303,6 +328,7 @@ export function useBirdnet() {
     msAnalise.value = r.msEspectro + r.msModelo
     deteccions.value = mellores(r, soDoMes, soHabituais)
     estado.value = 'listo'
+    return true
   }
 
   /** Mes en curso, 0-11. */
@@ -350,6 +376,7 @@ export function useBirdnet() {
 
   onScopeDispose(() => {
     parar()
+    deténCronos()
     pista?.getTracks().forEach(t => t.stop())
     traballador?.terminate()
     traballador = null

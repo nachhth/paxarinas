@@ -60,11 +60,11 @@ const aves = computed(() => {
 
 const resultados = computed(() => aves.value.filter(({ especie }) => {
   if (especie.rara && !incluirRaras.value) return false
-  if (soDeste.value && mes.value !== null) {
-    // Mesmo limiar que usa o ETL para dar un mes por presente: por debaixo
-    // do 3 % das citas é goteo, non presenza.
-    if ((especie.fenoloxia?.meses[mes.value] ?? 0) < 3) return false
-  }
+  // O limiar vive en `useCatalogo`: aquí estaba posto no 3% e na portada no 4%,
+  // e a mesma especie aparecía nun filtro de mes e non no outro. As que non
+  // teñen fenoloxía fiable quédanse, coma no identificador: a lista xa vén
+  // acotada pola comarca.
+  if (soDeste.value && mes.value !== null && !veseNoMes(especie, mes.value)) return false
   return true
 }))
 

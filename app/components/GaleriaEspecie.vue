@@ -163,8 +163,11 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
             </button>
             <p class="credito">
               <span v-if="f.autor">{{ f.autor }}</span>
-              <template v-if="f.licenzaUrl">
-                · <a :href="f.licenzaUrl" rel="license">{{ f.licenza }}</a>
+              <!-- `ligazon` porque a URL da licenza vén de Commons e edítaa
+                   calquera: se non é http(s) queda o nome da licenza en texto,
+                   que é o que esixe a atribución, pero sen enlace. -->
+              <template v-if="ligazon(f.licenzaUrl)">
+                · <a :href="ligazon(f.licenzaUrl)!" rel="license">{{ f.licenza }}</a>
               </template>
               <span v-else-if="f.licenza"> · {{ f.licenza }}</span>
             </p>
@@ -208,11 +211,11 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
               {{ etiqueta(foto) }}
             </strong>
             <span v-if="foto.autor">{{ foto.autor }}</span>
-            <template v-if="foto.licenzaUrl">
-              · <a :href="foto.licenzaUrl" rel="license">{{ foto.licenza }}</a>
+            <template v-if="ligazon(foto.licenzaUrl)">
+              · <a :href="ligazon(foto.licenzaUrl)!" rel="license">{{ foto.licenza }}</a>
             </template>
             <span v-else-if="foto.licenza"> · {{ foto.licenza }}</span>
-            <a v-if="foto.orixe" class="visor__orixe" :href="foto.orixe">
+            <a v-if="ligazon(foto.orixe)" class="visor__orixe" :href="ligazon(foto.orixe)!">
               Ver en Wikimedia Commons ↗
             </a>
           </figcaption>

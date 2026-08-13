@@ -32,7 +32,10 @@ function descarga() {
   a.href = url
   a.download = 'as-minas-aves.csv'
   a.click()
-  URL.revokeObjectURL(url)
+  // O `revoke` vai diferido: Firefox arranca a descarga despois do clic e
+  // liberando o obxecto na mesma quenda quedábase sen ficheiro que gardar. O
+  // CSV é o único xeito de non perder a listaxe, así que aquí non se aforra.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }
 </script>
 

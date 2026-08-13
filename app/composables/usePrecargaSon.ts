@@ -28,21 +28,32 @@ export function gardaPreferenciaPrecarga(v: PreferenciaPrecarga) {
 }
 
 /**
- * Se a conexión parece cara ou lenta, non se baixa nada.
+ * Por que non se baixa soa a conexión, ou `null` se se pode baixar.
  *
- * A API de rede non distingue wifi de datos en case ningún navegador, así que
- * se usa o que si dá: `saveData`, que é unha petición explícita de aforro, e a
- * calidade efectiva da conexión. Cando non hai información ningunha, dáse por
- * boa: bloquear por defecto deixaría a función sen usar na maioría dos casos.
+ * Úsase o que dá a API de rede: `saveData`, que é unha petición explícita de
+ * aforro; o tipo de conexión cando o navegador o di; e a calidade efectiva.
  */
-export function conexionAxeitada(): boolean {
+export type MotivoOmision = 'aforro' | 'datos' | 'lenta' | 'descoñecida'
+
+export function motivoOmision(): MotivoOmision | null {
   const c = (navigator as any).connection
-  if (!c) return true
-  if (c.saveData) return false
-  if (['slow-2g', '2g', '3g'].includes(c.effectiveType)) return false
+  // Firefox e Safari non implementan esta API: alí non hai como distinguir wifi
+  // de 4G. Antes iso contaba como «conexión boa» e a app baixaba 51 MB por
+  // sorpresa con datos móbiles, que é exactamente o que promete non facer en
+  // /sen-conexion. Non sabelo ten que valer o mesmo que un non: o modelo segue a
+  // un botón de distancia, e un botón non gasta os datos de ninguén.
+  if (!c || typeof c.effectiveType !== 'string') return 'descoñecida'
+  if (c.saveData) return 'aforro'
+  // `type` só o dan algúns navegadores; cando o dá, é o dato bo.
+  if (c.type === 'cellular') return 'datos'
+  if (['slow-2g', '2g', '3g'].includes(c.effectiveType)) return 'lenta'
   // downlink vén en Mbps; por debaixo de 2 son máis de tres minutos de espera.
-  if (typeof c.downlink === 'number' && c.downlink > 0 && c.downlink < 2) return false
-  return true
+  if (typeof c.downlink === 'number' && c.downlink > 0 && c.downlink < 2) return 'lenta'
+  return null
+}
+
+export function conexionAxeitada(): boolean {
+  return motivoOmision() === null
 }
 
 /** A caché onde a regra `CacheFirst` de `nuxt.config.ts` garda todo `/birdnet/`. */

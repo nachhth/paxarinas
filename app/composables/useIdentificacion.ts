@@ -1,3 +1,4 @@
+import { veseNoMes } from '~/composables/useCatalogo'
 import type { Especie, Tamano } from '~/types/catalogo'
 
 /**
@@ -76,9 +77,6 @@ export const MESES_GL = [
   'xullo', 'agosto', 'setembro', 'outubro', 'novembro', 'decembro',
 ]
 
-/** Mesmo limiar que usa o ETL para dar un mes por presente. */
-const LIMIAR_MES = 4
-
 export interface Criterios {
   mes: number | null
   habitat: string | null
@@ -107,13 +105,6 @@ export function habitatsDoCatalogo(especies: Especie[]) {
   return [...conta.entries()].sort((a, b) => b[1] - a[1])
 }
 
-function estaNoMes(e: Especie, mes: number) {
-  const f = e.fenoloxia
-  // Sen fenoloxía fiable non se descarta: sabemos pouco dela, non que non estea.
-  if (!f || !f.fiable) return true
-  return (f.meses[mes] ?? 0) >= LIMIAR_MES
-}
-
 export function filtra(
   especies: Especie[],
   c: Criterios,
@@ -121,7 +112,9 @@ export function filtra(
 ): Especie[] {
   const resultado = especies.filter((e, i) => {
     if (e.rara && !c.incluirRaras) return false
-    if (c.mes !== null && !estaNoMes(e, c.mes)) return false
+    // Sen fenoloxía fiable non se descarta: sabemos pouco dela, non que non
+    // estea. Ver `veseNoMes`.
+    if (c.mes !== null && !veseNoMes(e, c.mes)) return false
     if (c.tamano && e.rasgos?.tamano !== c.tamano) return false
     if (c.habitat && e.rasgos?.habitat !== c.habitat) return false
     if (c.grupo && grupoDe(e) !== c.grupo) return false

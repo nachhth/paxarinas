@@ -36,12 +36,14 @@ function tipoEnGalego(tipo: string | null) {
     <p class="credito">
       <span v-if="canto.autor">{{ canto.autor }}</span>
       <template v-if="canto.lugar"> · {{ canto.lugar }}</template>
-      <template v-if="canto.licenza">
+      <!-- `ligazon`: as dúas URL veñen da API de xeno-canto e non se poñen nun
+           `href` sen comprobar o esquema. -->
+      <template v-if="ligazon(canto.licenza)">
         ·
-        <a :href="canto.licenza" rel="license">licenza</a>
+        <a :href="ligazon(canto.licenza)!" rel="license">licenza</a>
       </template>
-      <template v-if="canto.orixe">
-        · <a :href="canto.orixe">xeno-canto</a>
+      <template v-if="ligazon(canto.orixe)">
+        · <a :href="ligazon(canto.orixe)!">xeno-canto</a>
       </template>
     </p>
   </div>

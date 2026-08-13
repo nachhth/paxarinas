@@ -111,6 +111,22 @@ def abre(url: str):
     return urllib.request.urlopen(req, timeout=120)
 
 
+def url_segura(url: str | None) -> str | None:
+    """A URL se se pode publicar nun enlace, e None se non.
+
+    As licenzas e as páxinas de orixe saen de `extmetadata` de Commons, que se
+    xera co wikitexto de cada ficheiro: edítao calquera. A app pon eses valores
+    nun `href`, e Vue non sanea os `href`, así que un `javascript:` sería código
+    executable a un clic na ficha dun paxaro. Aquí córtase na fonte; a app
+    compróbao outra vez ao pintar, porque o catálogo vai versionado e regenérase
+    só.
+    """
+    if not url:
+        return None
+    limpo = url.strip()
+    return limpo if re.match(r"^https?://", limpo, re.IGNORECASE) else None
+
+
 def slug(texto: str) -> str:
     normal = unicodedata.normalize("NFKD", texto)
     sen_acentos = "".join(c for c in normal if not unicodedata.combining(c))

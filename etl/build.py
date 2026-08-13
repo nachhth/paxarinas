@@ -104,6 +104,22 @@ def carga_estados() -> dict[str, dict]:
     return json.loads(ficheiro.read_text(encoding="utf-8"))["estados"]
 
 
+def carga_plumaxes() -> dict[str, list[str]]:
+    """Que grupos de plumaxe ten a galería de cada especie.
+
+    Vai ao catálogo, e non só ao ficheiro da galería, para que a ficha poida
+    avisar antes de que ninguén prema nada: agrupar por sexo é do que máis
+    axuda a identificar, e estaba agochado tras un botón.
+    """
+    ficheiro = OUT_DIR / "commons_sexos.json"
+    if not ficheiro.exists():
+        log("Aviso: sen commons_sexos.json. As fichas non avisarán das plumaxes.")
+        return {}
+
+    datos = json.loads(ficheiro.read_text(encoding="utf-8"))["porEspecie"]
+    return {sci: d["grupos"] for sci, d in datos.items() if d.get("grupos")}
+
+
 def carga_rasgos() -> dict[str, dict]:
     """Tamaño, hábitat e dieta: o que permite buscar sen saber o nome."""
     ficheiro = OUT_DIR / "avonet_rasgos.json"
@@ -267,6 +283,7 @@ def main() -> None:
     textos = carga_textos()
     estados = carga_estados()
     rexistro = carga_rexistro()
+    plumaxes = carga_plumaxes()
 
     catalogo = []
     sen_aceptar = 0
@@ -341,6 +358,8 @@ def main() -> None:
             # é o que esixe a licenza e ademais dá onde seguir lendo.
             "descricion": textos.get(sci),
             "conservacion": estados.get(sci),
+            # Baleiro na maioría: só hai grupos onde a especie os ten de verdade.
+            "plumaxes": plumaxes.get(sci, []),
             # Os meses son dato bruto de GBIF; o estatus é unha estimación
             # feita sobre eles. Van xuntos para que a app poida amosar a
             # evidencia ao lado da interpretación.
@@ -394,6 +413,8 @@ def main() -> None:
     log(f"  con parecidas:   {con_parecidas} ({con_parecidas / len(catalogo):.0%})")
     con_texto = sum(1 for e in catalogo if e["descricion"])
     log(f"  con descrición:  {con_texto} ({con_texto / len(catalogo):.0%})")
+    con_plumaxes = sum(1 for e in catalogo if e["plumaxes"])
+    log(f"  con grupos de plumaxe: {con_plumaxes} ({con_plumaxes / len(catalogo):.0%})")
     con_estado = sum(1 for e in catalogo if e["conservacion"])
     ameazadas = sum(1 for e in catalogo if (e["conservacion"] or {}).get("ameazada"))
     log(f"  con estado UICN: {con_estado} ({con_estado / len(catalogo):.0%}), "

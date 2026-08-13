@@ -27,6 +27,33 @@ const parecidas = computed(() =>
     .map(i => catalogo.especies[i])
     .filter((e): e is Especie => !!e))
 
+/**
+ * Aviso de que esta especie ten fotos separadas por plumaxe.
+ *
+ * Dise o que hai, non o que significa. Que Commons teña subcategorías de macho
+ * e femia adoita implicar que se distinguen a simple vista, pero «o macho e a
+ * femia non se parecen» sería unha interpretación nosa, e nunha guía de
+ * identificación iso non se afirma sen sabelo.
+ */
+const avisoPlumaxes = computed(() => {
+  const p = especie.value?.plumaxes ?? []
+  if (!p.length) return null
+
+  // Termos soltos e non «macho e femia» xunto: se non, ao unir a lista sae
+  // «macho e femia e xuvenís».
+  const partes: string[] = []
+  if (p.includes('macho') && p.includes('femia')) partes.push('macho', 'femia')
+  if (p.includes('nupcial') || p.includes('inverno')) partes.push('plumaxe segundo a época')
+  if (p.includes('eclipse')) partes.push('plumaxe de eclipse')
+  if (p.includes('xuvenil')) partes.push('xuvenís')
+
+  if (!partes.length) return null
+  const lista = partes.length === 1
+    ? partes[0]
+    : `${partes.slice(0, -1).join(', ')} e ${partes.at(-1)}`
+  return `Hai fotos de ${lista}.`
+})
+
 const outrosNomes = computed(() => {
   const e = especie.value
   if (!e) return []
@@ -66,12 +93,15 @@ const outrosNomes = computed(() => {
         >
         <figcaption>
           <span v-if="especie.foto.autor">{{ especie.foto.autor }} · </span>
-          <a v-if="especie.foto.licenzaUrl" :href="especie.foto.licenzaUrl" rel="license">
+          <!-- `ligazon`: a URL da licenza vén de `extmetadata` de Commons, que
+               edita calquera. Sen enlace válido queda o nome da licenza, que é
+               o que esixe a atribución. -->
+          <a v-if="ligazon(especie.foto.licenzaUrl)" :href="ligazon(especie.foto.licenzaUrl)!" rel="license">
             {{ especie.foto.licenza }}
           </a>
           <span v-else>{{ especie.foto.licenza }}</span>
-          <template v-if="especie.foto.orixe">
-            · <a :href="especie.foto.orixe">Wikimedia Commons</a>
+          <template v-if="ligazon(especie.foto.orixe)">
+            · <a :href="ligazon(especie.foto.orixe)!">Wikimedia Commons</a>
           </template>
         </figcaption>
       </figure>
@@ -83,6 +113,16 @@ const outrosNomes = computed(() => {
 
     <section class="bloque">
       <h2>Máis fotos</h2>
+
+      <!-- Vai enriba do botón e non dentro da galería: agrupar por plumaxe é do
+           que máis axuda a identificar, e quedaba agochado tras un clic. Quen
+           abre o lavanco e ve unha foto de macho non tiña como saber que a
+           femia estaba aí ao lado. -->
+      <p v-if="avisoPlumaxes" class="plumaxes">
+        <strong>{{ avisoPlumaxes }}</strong>
+        As fotos van separadas por grupos.
+      </p>
+
       <ClientOnly>
         <GaleriaEspecie :slug="especie.slug" :nome="titulo" />
       </ClientOnly>
@@ -374,6 +414,21 @@ const outrosNomes = computed(() => {
   margin: 0;
   max-width: 44rem;
   text-wrap: pretty;
+}
+
+/* Non é un aviso de erro: é unha pista útil. Verde tenue, coma o resto do que
+   engade información na app, e non o amarelo do toxo que marca advertencias. */
+.plumaxes {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--fento);
+  border-radius: 0 var(--raio) var(--raio) 0;
+  background: var(--fento-tenue);
+  font-size: 0.9rem;
+}
+
+.plumaxes strong {
+  font-weight: 650;
 }
 
 .estado {
