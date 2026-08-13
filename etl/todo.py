@@ -43,6 +43,10 @@ ETAPAS = [
     ("zonas", "zonas.py", "comarcas e as súas aves", False),
     ("hotspots", "ebird_hotspots.py", "lugares de observación", False),
     ("galeria", "commons_galeria.py", "galería só en liña", False),
+    # Ten que ir xusto despois da galería e nunca antes: escribe sobre os mesmos
+    # ficheiros de public/data/galeria/. Se falta, cada pasada completa borra as
+    # etiquetas de sexo e plumaxe sen dicir nada.
+    ("sexos", "commons_sexos.py", "sexos e plumaxes da galería", False),
     ("fotos", "wikimedia_fotos.py", "fotos (lenta: descarga 34 MB)", True),
     ("cantos", "xenocanto_cantos.py", "cantos (lenta: descarga e recodifica)", True),
     ("build", "build.py", "fusiona todo no catálogo", False),
@@ -59,6 +63,7 @@ RESUMOS = {
     "zonas.json": ("total", "comarcas"),
     "ebird_hotspots.json": ("total", "lugares"),
     "commons_galeria.json": ("conGaleria", "especies con galería"),
+    "commons_sexos.json": ("conGrupos", "especies con grupos de plumaxe"),
     "wikimedia_fotos.json": ("total", "fotos"),
     "xenocanto_cantos.json": ("total", "cantos"),
 }
@@ -68,6 +73,31 @@ def executa(guion: str) -> tuple[bool, float]:
     inicio = time.monotonic()
     proc = subprocess.run([sys.executable, str(ETL / guion)], cwd=RAIZ)
     return proc.returncode == 0, time.monotonic() - inicio
+
+
+def escribe_rexistro(resultados: list[dict]) -> dict:
+    """Deixa constancia da execución e devolve o que se escribiu.
+
+    `completa` describe OS DATOS, non o comando: é certo cando todas as fontes
+    teñen saída e todas son do mesmo día. Antes dicía se esa invocación executara
+    todo, e entón un `--so sexos` marcaba como incompleto un catálogo que estaba
+    perfecto.
+    """
+    fontes = resume_saidas()
+    datas = {f["actualizado"] for f in fontes.values()}
+
+    rexistro = {
+        "data": max(datas) if datas else datetime.now(timezone.utc).date().isoformat(),
+        "instante": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "completa": len(fontes) == len(RESUMOS) and len(datas) == 1,
+        "etapas": resultados,
+        "fontes": fontes,
+    }
+
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    REXISTRO.write_text(
+        json.dumps(rexistro, ensure_ascii=False, indent=2), encoding="utf-8")
+    return rexistro
 
 
 def resume_saidas() -> dict[str, dict]:
@@ -126,6 +156,13 @@ def main() -> int:
     fallos = 0
 
     for i, (nome, guion, que, _) in enumerate(etapas, 1):
+        # O rexistro escríbese ANTES de construír, porque `build.py` cópiao ao
+        # catálogo: se se escribise ao final, o catálogo levaría sempre a data
+        # da execución anterior. Ao rematar reescríbese cos resultados de todas
+        # as etapas, pero as datas das fontes xa non cambian.
+        if nome == "build":
+            escribe_rexistro(resultados)
+
         log(f"\n{'=' * 62}")
         log(f"[{i}/{len(etapas)}] {nome} — {que}")
         log("=" * 62)
@@ -143,22 +180,18 @@ def main() -> int:
                 log("   É a base de todo o demais: non ten sentido seguir.")
                 break
 
-    rexistro = {
-        "data": datetime.now(timezone.utc).date().isoformat(),
-        "instante": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "completa": not rapido and soamente is None and desde is None,
-        "etapas": resultados,
-        "fontes": resume_saidas(),
-    }
-
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    REXISTRO.write_text(
-        json.dumps(rexistro, ensure_ascii=False, indent=2), encoding="utf-8")
+    rexistro = escribe_rexistro(resultados)
 
     log(f"\n{'=' * 62}")
     log(f"Rematado o {rexistro['data']}. {len(resultados) - fallos}/{len(resultados)} etapas ben.")
     for f in rexistro["fontes"].values():
         log(f"  {str(f['conta']):>6}  {f['que']:32} ({f['actualizado']})")
+    if not rexistro["completa"]:
+        datas = sorted({f["actualizado"] for f in rexistro["fontes"].values()})
+        if len(rexistro["fontes"]) < len(RESUMOS):
+            log(f"\n  Faltan fontes: {len(rexistro['fontes'])} de {len(RESUMOS)}.")
+        if len(datas) > 1:
+            log(f"\n  As fontes non son todas do mesmo día ({datas[0]} … {datas[-1]}).")
     if fallos:
         log(f"\n{fallos} etapas con erro: "
             + ", ".join(r["etapa"] for r in resultados if not r["ok"]))

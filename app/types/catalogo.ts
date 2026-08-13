@@ -77,6 +77,30 @@ export interface FotoGaleria {
   licenza: string | null
   licenzaUrl: string | null
   orixe: string | null
+  /**
+   * Macho, femia, xuvenil… deducido das subcategorías de Commons e do título
+   * do ficheiro por `etl/commons_sexos.py`. Ausente na maioría das fotos, e
+   * iso é deliberado: unha etiqueta de sexo errada nunha guía leva a descartar
+   * a especie correcta, así que ante a dúbida non se etiqueta.
+   */
+  plumaxe?: Plumaxe
+}
+
+export type Plumaxe =
+  | 'macho' | 'femia' | 'xuvenil' | 'eclipse' | 'nupcial' | 'inverno'
+
+/**
+ * O ficheiro de galería, tal como o len `GaleriaEspecie`.
+ *
+ * `grupos` só vén cando hai polo menos dous grupos con dúas fotos cada un.
+ * Con menos non se agrupa: un título «Macho» enriba dunha foto solta non
+ * aporta nada, e un grupo só non se pode comparar con ningún outro.
+ */
+export interface Galeria {
+  cientifico: string
+  fonte: string
+  fotos: FotoGaleria[]
+  grupos?: Plumaxe[]
 }
 
 export type Tamano =

@@ -1,4 +1,5 @@
 import { useCatalogo } from '~/composables/useCatalogo'
+import { modeloNoDispositivo } from '~/composables/usePrecargaSon'
 import type { Especie } from '~/types/catalogo'
 
 /**
@@ -95,6 +96,16 @@ export function useBirdnet() {
   const segundosGravados = ref(0)
   const msAnalise = ref(0)
   const espazoLibre = ref<number | null>(null)
+  /**
+   * O modelo xa está no dispositivo, así que «cargar» non baixa nada.
+   *
+   * O estado desta páxina vive en `ref`s que morren ao navegar a outra ruta: ao
+   * volver arrinca sempre en `inicial`. Sen preguntarlle á caché, a páxina
+   * volvía ofrecer os 49 MB a quen xa os tiña. Non se trata de conservar o
+   * estado —o worker si convén soltalo, son 49 MB en memoria de GPU—, senón de
+   * mirar o dispositivo antes de ofrecer nada.
+   */
+  const daCache = ref(false)
 
   let traballador: Worker | null = null
   let galegas: Galegas | null = null
@@ -137,7 +148,11 @@ export function useBirdnet() {
     }
   }
 
-  /** Comproba se hai GPU e canto espazo queda, sen baixar nada. */
+  /**
+   * Comproba se hai GPU, canto espazo queda e **se o modelo xa está baixado**,
+   * sen baixar nada. Se xa o está, prepárao só: non hai nada que pedirlle a
+   * quen xa pagou os 49 MB.
+   */
   async function comprobar() {
     if (!await haiGpu()) {
       estado.value = 'sen-gpu'
@@ -148,6 +163,12 @@ export function useBirdnet() {
         const { quota, usage } = await navigator.storage.estimate()
         espazoLibre.value = quota != null ? quota - (usage ?? 0) : null
       } catch { espazoLibre.value = null }
+    }
+    if (estado.value !== 'inicial') return
+    if (await modeloNoDispositivo()) {
+      daCache.value = true
+      await cargar()
+      return
     }
     if (estado.value === 'inicial') estado.value = 'sen-modelo'
   }
@@ -192,6 +213,9 @@ export function useBirdnet() {
       estado.value = 'listo'
     } catch (e: any) {
       if (e?.codigo === 'sen-gpu') { estado.value = 'sen-gpu'; return }
+      // Se fallou vindo da caché, esta xa non é fiable: volve a ofrecerse a
+      // descarga completa e non un «só falta preparalo» que non se cumpriría.
+      daCache.value = false
       erro.value = e?.message ?? String(e)
       estado.value = 'erro'
     }
@@ -333,7 +357,7 @@ export function useBirdnet() {
 
   return {
     estado, erro, progreso, bytesBaixados, backend, gpu,
-    deteccions, segundosGravados, msAnalise, espazoLibre,
+    deteccions, segundosGravados, msAnalise, espazoLibre, daCache,
     comprobar, cargar, gravar, parar, candidatas,
     totalGalegas: computed(() => porIndice.value.size),
     mesActual,

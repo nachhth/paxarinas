@@ -45,19 +45,57 @@ export function conexionAxeitada(): boolean {
   return true
 }
 
-/** Xa está no dispositivo? Evita pedir 49 MB que xa temos. */
-async function xaCacheado(): Promise<boolean> {
-  if (!('caches' in window)) return false
+/** A caché onde a regra `CacheFirst` de `nuxt.config.ts` garda todo `/birdnet/`. */
+export const CACHE_BIRDNET = 'paxarinas-birdnet'
+
+/** O que non depende do manifesto de pesos e fai falta sempre. */
+const IMPRESCINDIBLES = [
+  '/birdnet/melspec.json',
+  '/birdnet/melspec.js',
+  '/birdnet/galegas.json',
+  '/birdnet/worker.js',
+  '/birdnet/vendor/tf.min.js',
+]
+
+/**
+ * O backend de WebGPU. Báixase, pero non se esixe para dar o modelo por
+ * completo: só o carga o worker en navegadores con `navigator.gpu`, así que
+ * esixilo diría «fáltache algo» para sempre en todos os demais.
+ */
+const OPCIONAIS = ['/birdnet/vendor/tf-backend-webgpu.min.js']
+
+/**
+ * Xa está o modelo **enteiro** no dispositivo?
+ *
+ * Non chega con mirar `model.json`: é o primeiro ficheiro que pide TF.js, así
+ * que unha descarga cortada á metade deixa o manifesto na caché e ningún shard.
+ * Se nos fiásemos del, `/escoitar` diría «xa o tes» e despois baixaría 49 MB en
+ * silencio, que é xusto o que non pode pasar con datos móbiles. Compróbanse
+ * todos os shards, e sen tocar a rede: o manifesto lese da propia caché.
+ */
+export async function modeloNoDispositivo(): Promise<boolean> {
+  if (typeof window === 'undefined' || !('caches' in window)) return false
   try {
-    const c = await caches.open('paxarinas-birdnet')
-    return !!(await c.match('/birdnet/modelo/model.json'))
+    const c = await caches.open(CACHE_BIRDNET)
+    const manifesto = await c.match('/birdnet/modelo/model.json')
+    if (!manifesto) return false
+    for (const url of IMPRESCINDIBLES) {
+      if (!await c.match(url)) return false
+    }
+    const json = await manifesto.json()
+    for (const grupo of json.weightsManifest ?? []) {
+      for (const ruta of grupo.paths ?? []) {
+        if (!await c.match(`/birdnet/modelo/${ruta}`)) return false
+      }
+    }
+    return true
   } catch {
     return false
   }
 }
 
 /** Todos os ficheiros do modelo, sacados do propio manifesto de pesos. */
-async function ficheirosDoModelo(): Promise<string[]> {
+export async function ficheirosDoModelo(): Promise<string[]> {
   const r = await fetch('/birdnet/modelo/model.json')
   if (!r.ok) throw new Error(`model.json: HTTP ${r.status}`)
   const manifesto = await r.json()
@@ -67,13 +105,32 @@ async function ficheirosDoModelo(): Promise<string[]> {
     for (const ruta of grupo.paths ?? []) shards.push(`/birdnet/modelo/${ruta}`)
   }
 
-  return [
-    '/birdnet/melspec.json',
-    '/birdnet/melspec.js',
-    '/birdnet/galegas.json',
-    '/birdnet/vendor/tf.min.js',
-    ...shards,
-  ]
+  return [...IMPRESCINDIBLES, ...OPCIONAIS, ...shards]
+}
+
+/**
+ * Baixa o modelo enteiro deixando que o garde o service worker, avisando do
+ * avance. Úsana a precarga automática e o botón de `/sen-conexion`.
+ *
+ * De un en un e non en paralelo: isto corre mentres alguén está a usar a app, e
+ * non pode competir polo ancho de banda coas fotos que está a mirar.
+ */
+export async function baixaModelo(
+  avance?: (feitos: number, total: number, bytes: number) => void,
+  segue: () => boolean = () => true,
+): Promise<void> {
+  const ficheiros = await ficheirosDoModelo()
+  let bytes = 0
+  avance?.(0, ficheiros.length, 0)
+  for (const [i, url] of ficheiros.entries()) {
+    if (!navigator.onLine || !segue()) throw new Error('descarga interrompida')
+    const r = await fetch(url)
+    if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`)
+    // Hai que consumir o corpo: se non, a resposta non chega a rematar e o
+    // service worker non a garda.
+    bytes += (await r.arrayBuffer()).byteLength
+    avance?.(i + 1, ficheiros.length, bytes)
+  }
 }
 
 export async function precargaSon(): Promise<'feito' | 'omitido' | 'erro'> {
@@ -82,22 +139,14 @@ export async function precargaSon(): Promise<'feito' | 'omitido' | 'erro'> {
   if (!navigator.onLine) return 'omitido'
   if (!navigator.serviceWorker?.controller) return 'omitido'
   if (!conexionAxeitada()) return 'omitido'
-  if (await xaCacheado()) return 'feito'
+  if (await modeloNoDispositivo()) return 'feito'
 
   // Sen almacenamento persistente o navegador pode desaloxar os 49 MB á
   // primeira estreitez, e volveriamos baixalos.
   try { await navigator.storage?.persist?.() } catch { /* opcional */ }
 
   try {
-    const ficheiros = await ficheirosDoModelo()
-    // De un en un e non en paralelo: isto corre mentres alguén está a usar a
-    // app, e non pode competir polo ancho de banda coas fotos que está a mirar.
-    for (const url of ficheiros) {
-      if (!navigator.onLine) return 'omitido'
-      const r = await fetch(url)
-      if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`)
-      await r.arrayBuffer()
-    }
+    await baixaModelo()
     return 'feito'
   } catch {
     // Sen ruído: é unha comodidade, non unha función. Se falla, o botón de

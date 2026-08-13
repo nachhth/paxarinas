@@ -6,7 +6,7 @@ useHead({ title: 'Escoitar — Paxariñas' })
 
 const {
   estado, erro, progreso, bytesBaixados, backend, gpu,
-  deteccions, segundosGravados, msAnalise, espazoLibre,
+  deteccions, segundosGravados, msAnalise, espazoLibre, daCache,
   comprobar, cargar, gravar, parar, candidatas, totalGalegas, mesActual,
 } = useBirdnet()
 
@@ -86,43 +86,61 @@ async function aoGravar() {
     </section>
 
     <template v-else>
-      <!-- ─── Descarga do modelo ────────────────────────────────────────────── -->
-      <!-- `inicial` entra aquí a propósito: comprobar se hai GPU é asíncrono
-           (hai que pedirlle o adaptador a WebGPU) e, se non, a páxina quedaría
-           un instante en branco. Se resultase non haber GPU, `cargar()`
-           vólveo comprobar antes de baixar nada. -->
+      <!-- ─── Comprobación ──────────────────────────────────────────────────── -->
+      <!-- `inicial` dura o que tarda en responder o adaptador de WebGPU e en
+           mirar a caché. Antes aquí ofrecíase xa a descarga, e a quen xa tiña o
+           modelo pedíanselle 49 MB durante ese intre; agora dise o que se está
+           a facer, que é curto e non mente. -->
+      <section v-if="estado === 'inicial'" class="bloque">
+        <h2>Identificación polo son</h2>
+        <p class="nota">Comprobando o dispositivo…</p>
+      </section>
+
+      <!-- ─── Descarga ou preparación do modelo ─────────────────────────────── -->
       <section
-        v-if="['inicial', 'sen-modelo', 'cargando', 'erro'].includes(estado)"
+        v-else-if="['sen-modelo', 'cargando', 'erro'].includes(estado)"
         class="bloque"
       >
-        <h2>Primeiro hai que baixar o modelo</h2>
-        <p>
-          O identificador usa <strong>BirdNET</strong>, do Cornell Lab of
-          Ornithology. Son <strong>{{ mb(BYTES_MODELO) }}</strong> que
-          <em>non</em> se descargan ao instalar a app: só cando os pides aquí.
-          Bótalle wifi.
-        </p>
-        <p class="nota">
-          Queda gardado no dispositivo, así que isto é unha vez soa. Despois
-          funciona sen conexión.
-        </p>
+        <template v-if="daCache">
+          <h2>Preparando o modelo</h2>
+          <p>
+            O modelo <strong>xa está no teu dispositivo</strong>: isto non baixa
+            nada, só o pon a punto na tarxeta gráfica. Tarda uns segundos.
+          </p>
+        </template>
 
-        <p v-if="senEspazo" class="aviso">
-          O navegador di que só quedan {{ mb(espazoLibre ?? 0) }} libres. Pode
-          que a descarga non caiba.
-        </p>
+        <template v-else>
+          <h2>Primeiro hai que baixar o modelo</h2>
+          <p>
+            O identificador usa <strong>BirdNET</strong>, do Cornell Lab of
+            Ornithology. Son <strong>{{ mb(BYTES_MODELO) }}</strong> que
+            <em>non</em> se descargan ao instalar a app: só cando os pides aquí.
+            Bótalle wifi.
+          </p>
+          <p class="nota">
+            Queda gardado no dispositivo, así que isto é unha vez soa. Despois
+            funciona sen conexión, e ao volver a esta páxina xa non se pide.
+          </p>
+
+          <p v-if="senEspazo" class="aviso">
+            O navegador di que só quedan {{ mb(espazoLibre ?? 0) }} libres. Pode
+            que a descarga non caiba.
+          </p>
+        </template>
 
         <div v-if="estado === 'cargando'">
           <div
             class="barra" role="progressbar"
             :aria-valuenow="pct" aria-valuemin="0" aria-valuemax="100"
-            :aria-label="`Descargando o modelo: ${pct}%`"
+            :aria-label="daCache ? `Preparando o modelo: ${pct}%` : `Descargando o modelo: ${pct}%`"
           >
             <div class="barra__feito" :style="{ width: `${pct}%` }" />
           </div>
           <p class="progreso">
             <span class="progreso__pct">{{ pct }}%</span>
-            {{ mb(bytesBaixados) }} de {{ mb(BYTES_MODELO) }}
+            <template v-if="!daCache">
+              {{ mb(bytesBaixados) }} de {{ mb(BYTES_MODELO) }}
+            </template>
           </p>
         </div>
 

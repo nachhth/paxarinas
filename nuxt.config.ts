@@ -106,10 +106,21 @@ export default defineNuxtConfig({
     inlineStyles: false,
   },
 
+  runtimeConfig: {
+    public: {
+      // Dominio absoluto, que o esixen os mapas de sitio. Cámbiase sen tocar
+      // código coa variable de contorno NUXT_PUBLIC_SITIO; en Vercel, nas
+      // variables do proxecto.
+      sitio: 'https://paxarinas.vercel.app',
+    },
+  },
+
   nitro: {
     prerender: {
       crawlLinks: true,
-      routes: ['/'],
+      // O mapa e o robots non están enlazados desde ningunha páxina, así que o
+      // rastrexador non daría con eles: hai que pedilos explicitamente.
+      routes: ['/', '/sitemap.xml', '/robots.txt'],
     },
   },
 

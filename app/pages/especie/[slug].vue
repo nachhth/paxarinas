@@ -256,6 +256,11 @@ const outrosNomes = computed(() => {
         </a>
       </p>
     </section>
+
+    <!-- Ao final da ficha, cando xa se viu todo o que podería estar mal. -->
+    <ClientOnly>
+      <AvisarErro :especie="especie" />
+    </ClientOnly>
   </article>
 </template>
 

@@ -78,6 +78,10 @@ const dataDatos = computed(() => dataLonga(catalogo.rexistro?.data))
         <NuxtLink to="/creditos">Créditos e licenzas</NuxtLink>
         <span aria-hidden="true">·</span>
         <NuxtLink to="/sen-conexion">Uso sen conexión</NuxtLink>
+        <span aria-hidden="true">·</span>
+        <a href="https://github.com/nachhth/paxarinas/issues/new" rel="noopener">
+          Avisar dun erro
+        </a>
       </p>
     </footer>
   </div>

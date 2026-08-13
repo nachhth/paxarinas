@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { FotoGaleria } from '~/types/catalogo'
+import type { FotoGaleria, Galeria, Plumaxe } from '~/types/catalogo'
 
 const props = defineProps<{ slug: string; nome: string }>()
 
@@ -10,6 +10,7 @@ const props = defineProps<{ slug: string; nome: string }>()
  */
 const estado = ref<'agochada' | 'cargando' | 'lista' | 'baleira' | 'erro'>('agochada')
 const fotos = ref<FotoGaleria[]>([])
+const grupos = ref<Plumaxe[]>([])
 
 async function amosar() {
   if (estado.value === 'cargando' || estado.value === 'lista') return
@@ -17,12 +18,57 @@ async function amosar() {
   try {
     const r = await fetch(`/data/galeria/${props.slug}.json`)
     if (!r.ok) throw new Error(String(r.status))
-    const d = await r.json()
+    const d = await r.json() as Galeria
     fotos.value = d.fotos ?? []
+    grupos.value = d.grupos ?? []
     estado.value = fotos.value.length ? 'lista' : 'baleira'
   } catch {
     estado.value = 'erro'
   }
+}
+
+/**
+ * Agrupar por plumaxe é o que máis achega isto a identificar de verdade: en
+ * moitas aves —calquera pato— o macho e a femia non se parecen en nada, así
+ * que unha soa foto pode ser xusto a que a persoa non viu.
+ *
+ * `grupos` chega baleiro na maioría das especies, e entón isto queda coma
+ * sempre. O ETL só o enche cando hai polo menos dous grupos con dúas fotos
+ * cada un, e nunca un sexo sen o outro: o que informa non é a etiqueta
+ * «Macho», é poder comparala coa de «Femia».
+ */
+const NOMES: Record<Plumaxe, string> = {
+  macho: 'Macho',
+  femia: 'Femia',
+  xuvenil: 'Xuvenil',
+  eclipse: 'Plumaxe de eclipse',
+  nupcial: 'Plumaxe nupcial',
+  inverno: 'Plumaxe de inverno',
+}
+
+interface Seccion { clave: string; nome: string; fotos: FotoGaleria[] }
+
+const seccions = computed<Seccion[]>(() => {
+  if (!grupos.value.length) {
+    return [{ clave: 'todas', nome: '', fotos: fotos.value }]
+  }
+  const out: Seccion[] = grupos.value
+    .map(g => ({ clave: g as string, nome: NOMES[g], fotos: fotos.value.filter(f => f.plumaxe === g) }))
+    .filter(s => s.fotos.length)
+  // As que non se puideron clasificar van ao final e con nome propio, non
+  // metidas nun grupo calquera: non saber non é o mesmo que saber que non.
+  const resto = fotos.value.filter(f => !f.plumaxe)
+  if (resto.length) out.push({ clave: 'outras', nome: 'Sen clasificar', fotos: resto })
+  return out
+})
+
+// O visor percorre as fotos na mesma orde na que se ven, non na do ficheiro:
+// se non, a frecha «seguinte» saltaría de grupo sen motivo aparente.
+const ordenadas = computed(() => seccions.value.flatMap(s => s.fotos))
+const indice = computed(() => new Map(ordenadas.value.map((f, i) => [f, i])))
+
+function etiqueta(f: FotoGaleria) {
+  return f.plumaxe ? NOMES[f.plumaxe] : null
 }
 
 /**
@@ -33,7 +79,7 @@ async function amosar() {
 const aberta = ref<number | null>(null)
 
 const foto = computed(() =>
-  aberta.value === null ? null : fotos.value[aberta.value] ?? null)
+  aberta.value === null ? null : ordenadas.value[aberta.value] ?? null)
 
 function abre(i: number) {
   aberta.value = i
@@ -44,8 +90,8 @@ function pecha() {
 }
 
 function move(paso: number) {
-  if (aberta.value === null || !fotos.value.length) return
-  const n = fotos.value.length
+  if (aberta.value === null || !ordenadas.value.length) return
+  const n = ordenadas.value.length
   aberta.value = (aberta.value + paso + n) % n
 }
 
@@ -102,26 +148,37 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
     </p>
 
     <template v-else>
-      <ul class="grella">
-        <li v-for="(f, i) in fotos" :key="f.url" :style="{ '--i': i }">
-          <button type="button" class="lupa" @click="abre(i)">
-            <img
-              :src="f.url"
-              :alt="`${nome} — fotografía de ${f.autor ?? 'autoría descoñecida'}`"
-              loading="lazy"
-              decoding="async"
-            >
-            <span class="só-lectores">Ampliar</span>
-          </button>
-          <p class="credito">
-            <span v-if="f.autor">{{ f.autor }}</span>
-            <template v-if="f.licenzaUrl">
-              · <a :href="f.licenzaUrl" rel="license">{{ f.licenza }}</a>
-            </template>
-            <span v-else-if="f.licenza"> · {{ f.licenza }}</span>
-          </p>
-        </li>
-      </ul>
+      <section v-for="s in seccions" :key="s.clave" class="seccion">
+        <h3 v-if="s.nome" class="seccion__titulo">{{ s.nome }}</h3>
+        <ul class="grella">
+          <li v-for="(f, i) in s.fotos" :key="f.url" :style="{ '--i': i }">
+            <button type="button" class="lupa" @click="abre(indice.get(f) ?? 0)">
+              <img
+                :src="f.url"
+                :alt="`${nome}${etiqueta(f) ? ` (${etiqueta(f)?.toLowerCase()})` : ''} — fotografía de ${f.autor ?? 'autoría descoñecida'}`"
+                loading="lazy"
+                decoding="async"
+              >
+              <span class="só-lectores">Ampliar</span>
+            </button>
+            <p class="credito">
+              <span v-if="f.autor">{{ f.autor }}</span>
+              <template v-if="f.licenzaUrl">
+                · <a :href="f.licenzaUrl" rel="license">{{ f.licenza }}</a>
+              </template>
+              <span v-else-if="f.licenza"> · {{ f.licenza }}</span>
+            </p>
+          </li>
+        </ul>
+      </section>
+
+      <!-- De onde saen os grupos. Isto non é un dato de campo revisado: son as
+           etiquetas que puxo quen subiu cada foto a Commons, e por iso se di. -->
+      <p v-if="grupos.length" class="nota">
+        Os grupos veñen de como están clasificadas as fotos en Commons. As que
+        van en «Sen clasificar» poden ser de calquera plumaxe: non hai dato,
+        non que sexan doutra cousa.
+      </p>
       <p class="nota">
         Fotos aloxadas en
         <a href="https://commons.wikimedia.org">Wikimedia Commons</a>. Non se
@@ -137,16 +194,19 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
         <button class="visor__pechar" aria-label="Pechar" @click="pecha">✕</button>
 
         <button
-          v-if="fotos.length > 1" class="visor__frecha visor__frecha--esq"
+          v-if="ordenadas.length > 1" class="visor__frecha visor__frecha--esq"
           aria-label="Anterior" @click="move(-1)"
         >‹</button>
 
         <figure class="visor__marco" @click.self="pecha">
           <img
             :src="foto.urlGrande ?? foto.url"
-            :alt="`${nome} — fotografía de ${foto.autor ?? 'autoría descoñecida'}`"
+            :alt="`${nome}${etiqueta(foto) ? ` (${etiqueta(foto)?.toLowerCase()})` : ''} — fotografía de ${foto.autor ?? 'autoría descoñecida'}`"
           >
           <figcaption>
+            <strong v-if="etiqueta(foto)" class="visor__plumaxe">
+              {{ etiqueta(foto) }}
+            </strong>
             <span v-if="foto.autor">{{ foto.autor }}</span>
             <template v-if="foto.licenzaUrl">
               · <a :href="foto.licenzaUrl" rel="license">{{ foto.licenza }}</a>
@@ -159,7 +219,7 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
         </figure>
 
         <button
-          v-if="fotos.length > 1" class="visor__frecha visor__frecha--dta"
+          v-if="ordenadas.length > 1" class="visor__frecha visor__frecha--dta"
           aria-label="Seguinte" @click="move(1)"
         >›</button>
       </div>
@@ -188,6 +248,26 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
 
 .baleiro .boton {
   margin-top: 0.5rem;
+}
+
+/* Os grupos van seguidos e sen caixa: o que separa é o título, e abonda.
+   Unha tarxeta por grupo faría parecer que son tres galerías distintas. */
+.seccion + .seccion {
+  margin-top: 1.1rem;
+}
+
+.seccion__titulo {
+  margin: 0 0 0.45rem;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.visor__plumaxe {
+  flex-basis: 100%;
+  color: #fff;
+  font-size: 0.95rem;
 }
 
 .grella {

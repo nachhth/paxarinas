@@ -14,9 +14,59 @@ const usado = ref<number | null>(null)
 
 /** Precarga do modelo de son: baixa soa, agás que se apague aquí. */
 const precargaSonActiva = ref(true)
+
+/**
+ * O modelo de son ten botón propio e non entra no de arriba.
+ *
+ * A queixa que o motivou: alguén premía «Descargar todo para uso sen conexión»,
+ * a páxina dicía «uns 38 MB» e despois `/escoitar` seguía pedindo o modelo. Non
+ * era mentira por pouco: `useDescargaOffline` baixa fotos e cantos e nunca
+ * baixou o modelo. Xuntalos nun só botón tampouco valía —son 49 MB fronte a 38,
+ * e hai quen nunca vai usar o identificador polo son—, así que van separados e
+ * cada un di o que pesa.
+ */
+type EstadoModelo = 'comprobando' | 'ausente' | 'baixando' | 'feito' | 'erro' | 'sen-sw'
+const modeloEstado = ref<EstadoModelo>('comprobando')
+const modeloFeitos = ref(0)
+const modeloTotal = ref(0)
+const modeloBytes = ref(0)
+const modeloCancelado = ref(false)
+const modeloPct = computed(() =>
+  modeloTotal.value ? Math.round((modeloFeitos.value / modeloTotal.value) * 100) : 0)
+
+async function revisaModelo() {
+  modeloEstado.value = await modeloNoDispositivo() ? 'feito' : 'ausente'
+}
+
+async function baixarModelo() {
+  if (modeloEstado.value === 'baixando') return
+  if (!navigator.serviceWorker?.controller) { modeloEstado.value = 'sen-sw'; return }
+  modeloCancelado.value = false
+  modeloFeitos.value = 0
+  modeloBytes.value = 0
+  modeloEstado.value = 'baixando'
+  // Sen isto o navegador pode tirar os 49 MB en canto lle apete o espazo.
+  try { await navigator.storage?.persist?.() } catch { /* opcional */ }
+  try {
+    await baixaModelo(
+      (feitos, total, bytes) => {
+        modeloFeitos.value = feitos; modeloTotal.value = total; modeloBytes.value = bytes
+      },
+      () => !modeloCancelado.value,
+    )
+    modeloEstado.value = 'feito'
+  } catch {
+    // Cancelar non é fallar: o que quedou baixado segue na caché e ao volver a
+    // premer non se pide outra vez.
+    modeloEstado.value = modeloCancelado.value ? 'ausente' : 'erro'
+  }
+  usado.value = await espazoUsado()
+}
+
 onMounted(async () => {
   usado.value = await espazoUsado()
   precargaSonActiva.value = preferenciaPrecarga() === 'auto'
+  await revisaModelo()
 })
 watch(precargaSonActiva, (v) => gardaPreferenciaPrecarga(v ? 'auto' : 'nunca'))
 
@@ -39,12 +89,15 @@ watch(estado, async (v) => {
         precargalos todos faría a instalación inviable con datos móbiles.
       </p>
       <p>
-        Se vas a un sitio sen cobertura, báixao todo agora, con wifi.
+        Se vas a un sitio sen cobertura, báixao todo agora, con wifi. Son dúas
+        descargas separadas: as <strong>fotos e os cantos</strong>, e aparte o
+        <strong>modelo que identifica polo son</strong>, que pesa máis ca todo o
+        demais xunto.
       </p>
     </section>
 
     <section class="bloque">
-      <h2>O que se baixa</h2>
+      <h2>Fotos e cantos</h2>
       <dl class="datos">
         <dt>Fotos grandes</dt>
         <dd>{{ fotos }}</dd>
@@ -53,7 +106,7 @@ watch(estado, async (v) => {
         <dt>Ficheiros en total</dt>
         <dd>{{ total }}</dd>
         <dt>Espazo aproximado</dt>
-        <dd>uns 38 MB</dd>
+        <dd>uns 38 MB, sen o modelo de son</dd>
         <dt>A app ocupa agora</dt>
         <!-- Mentres o navegador non responde a `estimate()` non se pon un
              guión: iso diría "cero". Un esqueleto di "aínda non se sabe".
@@ -64,30 +117,7 @@ watch(estado, async (v) => {
           <span v-else class="esqueleto esqueleto--liña" />
         </dd>
       </dl>
-    </section>
 
-    <section class="bloque">
-      <h2>Identificación polo son</h2>
-      <p>
-        O modelo que recoñece os cantos son <strong>49 MB</strong> aparte. Para
-        que estea listo cando o precises, báixase só en segundo plano despois de
-        abrir a app — pero <strong>nunca con datos móbiles lentos nin co aforro
-        de datos activado</strong>: nesas condicións agarda a que teñas wifi.
-      </p>
-      <ClientOnly>
-        <label class="check">
-          <input v-model="precargaSonActiva" type="checkbox">
-          Baixar o modelo de son automaticamente
-        </label>
-      </ClientOnly>
-      <p class="nota">
-        Se o apagas, segue estando dispoñible: baixarase cando entres en
-        <NuxtLink to="/escoitar">identificar polo son</NuxtLink> e o pidas.
-      </p>
-    </section>
-
-    <section class="bloque">
-      <h2>Descarga</h2>
       <div v-if="estado === 'descargando'">
         <div
           class="barra" role="progressbar"
@@ -105,8 +135,10 @@ watch(estado, async (v) => {
       </div>
 
       <template v-else>
+        <!-- Antes dicía «Descargar todo», e non era todo: o modelo de son
+             quedaba fóra e despois /escoitar seguía pedíndoo. -->
         <button class="boton" @click="descargar">
-          Descargar todo para uso sen conexión
+          Descargar as fotos e os cantos ({{ total }} ficheiros)
         </button>
 
         <p v-if="estado === 'feito'" class="aviso aviso--ben">
@@ -125,6 +157,74 @@ watch(estado, async (v) => {
           app: recarga a páxina e ténteo de novo.
         </p>
       </template>
+    </section>
+
+    <section class="bloque">
+      <h2>Identificación polo son</h2>
+      <p>
+        O modelo que recoñece os cantos son <strong>49 MB</strong>, e
+        <strong>non entran na descarga de arriba</strong>: pesan máis ca as
+        fotos e os cantos xuntos, e hai quen nunca vai usar o identificador.
+      </p>
+      <p>
+        Para que estea listo cando o precises, báixase só en segundo plano
+        despois de abrir a app — pero <strong>nunca con datos móbiles lentos nin
+        co aforro de datos activado</strong>: nesas condicións agarda a que
+        teñas wifi.
+      </p>
+
+      <!-- Todo isto le a Cache API e a preferencia gardada, que no prerender
+           non existen: fóra de <ClientOnly> a hidratación non cadraría. -->
+      <ClientOnly>
+        <label class="check">
+          <input v-model="precargaSonActiva" type="checkbox">
+          Baixar o modelo de son automaticamente
+        </label>
+
+        <p v-if="modeloEstado === 'comprobando'" class="nota">
+          Mirando se xa o tes…
+        </p>
+
+        <p v-else-if="modeloEstado === 'feito'" class="aviso aviso--ben">
+          O modelo xa está no teu dispositivo. <NuxtLink to="/escoitar">Identificar
+          polo son</NuxtLink> funciona sen conexión e non volverá pedircho.
+        </p>
+
+        <div v-else-if="modeloEstado === 'baixando'">
+          <div
+            class="barra" role="progressbar"
+            :aria-valuenow="modeloPct" aria-valuemin="0" aria-valuemax="100"
+            :aria-label="`Descargando o modelo de son: ${modeloPct}%`"
+          >
+            <div class="barra__feito" :style="{ width: `${modeloPct}%` }" />
+          </div>
+          <p class="progreso">
+            <span class="progreso__pct">{{ modeloPct }}%</span>
+            {{ modeloFeitos }} de {{ modeloTotal }} · {{ formatoMB(modeloBytes) }}
+          </p>
+          <button class="boton boton--suave" @click="modeloCancelado = true">Cancelar</button>
+        </div>
+
+        <template v-else>
+          <button class="boton" @click="baixarModelo">
+            Baixar tamén o modelo de son (49 MB)
+          </button>
+          <p v-if="modeloEstado === 'erro'" class="aviso">
+            A descarga do modelo quedou a medias. Podes volver premer: o que xa
+            está no dispositivo non se baixa outra vez.
+          </p>
+          <p v-else-if="modeloEstado === 'sen-sw'" class="aviso">
+            Non hai service worker activo, así que non habería onde gardar o
+            modelo. Recarga a páxina e ténteo de novo.
+          </p>
+        </template>
+      </ClientOnly>
+
+      <p class="nota">
+        Se apagas a descarga automática, o modelo segue estando dispoñible:
+        baixarase cando entres en
+        <NuxtLink to="/escoitar">identificar polo son</NuxtLink> e o pidas.
+      </p>
     </section>
   </div>
 </template>
