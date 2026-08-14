@@ -56,8 +56,23 @@ export function conexionAxeitada(): boolean {
   return motivoOmision() === null
 }
 
-/** A caché onde a regra `CacheFirst` de `nuxt.config.ts` garda todo `/birdnet/`. */
-export const CACHE_BIRDNET = 'paxarinas-birdnet'
+/**
+ * Está este ficheiro gardado no dispositivo?
+ *
+ * Pregúntaselle a `caches.match`, que busca en TODAS as cachés da orixe, e non
+ * a unha caché aberta polo seu nome. Non é un detalle: `/birdnet/` está repartido
+ * en dúas —o modelo por un lado e o código por outro, porque teñen que
+ * caducar de maneira distinta— e a versión anterior disto abría só a do modelo.
+ * Como alí buscaba tamén o worker e o TF.js, que xa non están nesa caché, daba
+ * «non está» sempre e a app pedía baixar os 49 MB en cada recarga, coa descarga
+ * feita.
+ *
+ * Preguntar por URL e non por nome de caché fai que isto siga valendo se mañá se
+ * volven repartir doutro xeito.
+ */
+async function gardado(url: string): Promise<boolean> {
+  return !!await caches.match(url)
+}
 
 /** O que non depende do manifesto de pesos e fai falta sempre. */
 const IMPRESCINDIBLES = [
@@ -87,16 +102,15 @@ const OPCIONAIS = ['/birdnet/vendor/tf-backend-webgpu.min.js']
 export async function modeloNoDispositivo(): Promise<boolean> {
   if (typeof window === 'undefined' || !('caches' in window)) return false
   try {
-    const c = await caches.open(CACHE_BIRDNET)
-    const manifesto = await c.match('/birdnet/modelo/model.json')
+    const manifesto = await caches.match('/birdnet/modelo/model.json')
     if (!manifesto) return false
     for (const url of IMPRESCINDIBLES) {
-      if (!await c.match(url)) return false
+      if (!await gardado(url)) return false
     }
     const json = await manifesto.json()
     for (const grupo of json.weightsManifest ?? []) {
       for (const ruta of grupo.paths ?? []) {
-        if (!await c.match(`/birdnet/modelo/${ruta}`)) return false
+        if (!await gardado(`/birdnet/modelo/${ruta}`)) return false
       }
     }
     return true

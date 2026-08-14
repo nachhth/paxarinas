@@ -197,6 +197,28 @@ repositorio sin licencia. Resultó que:
 Validación idéntica al spike, no parecida: 75% top-1 y 85% top-3 sobre 40 cantos
 reales, y **las 40 especies en el mismo puesto**. 48,5 ms por fragmento.
 
+**Una respuesta cacheada guarda también sus cabeceras, y eso muerde.** El
+worker de BirdNET quedó guardado bajo un `CacheFirst` de un año **con la CSP que
+tenía ese día dentro**; y como un worker toma la CSP de la respuesta de su
+propio script, `/escoitar` siguió muriendo con un `EvalError` incluso después de
+corregir la cabecera en el servidor. El arreglo estaba publicado y era imposible
+que llegase a nadie. Por eso `/birdnet/` está ahora en **dos** reglas: el modelo
+(49 MB que no cambian) en `CacheFirst`, y el código en `StaleWhileRevalidate`,
+que sigue funcionando sin cobertura pero deja que un arreglo llegue.
+
+Corolario que costó otra vuelta: al partir la caché en dos, la comprobación de
+«¿ya está descargado?» seguía abriendo **una sola** por su nombre, así que daba
+que no y la app pedía los 49 MB en cada recarga. Ahora pregunta por URL con
+`caches.match`, que busca en todas. **Nada debería depender del nombre de una
+caché.**
+
+**TensorFlow.js no necesita `'unsafe-eval'`, necesita dos parches.** Evaluaba
+cadenas en dos sitios (el `Function("return this")()` del envoltorio UMD y un
+`Function("r","regeneratorRuntime = r")` dentro de un `catch`). Se sustituyen al
+vendorizar, en `etl/birdnet/vendor_tfjs.mjs`, con un `throw` si dejan de
+aparecer exactamente una vez. Abrir la cabecera habría dado ese permiso a 1,4 MB
+de código ajeno para siempre.
+
 **El modelo son 49 MB versionados en `public/birdnet/`.** Nunca en el precache
 (`globIgnores` + regla `CacheFirst`), descarga bajo demanda. El repo pasa de ~50
 a ~100 MB y el despliegue a ~117 MB: **es la decisión que más conviene revisar**,
