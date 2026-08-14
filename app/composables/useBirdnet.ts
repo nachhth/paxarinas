@@ -107,6 +107,26 @@ export function useBirdnet() {
    */
   const daCache = ref(false)
 
+  /**
+   * O que se baixe **non** vai quedar gardado.
+   *
+   * Todo o de `/birdnet/` gárdao o service worker coa regra `CacheFirst`; se non
+   * hai ningún controlando esta páxina, as peticións non pasan por el e os 49 MB
+   * caen nun pozo: funcionan nesta sesión e ao volver pídense outra vez. Pasa
+   * tras un despregue novo (o worker aínda instalándose), na primeira visita e
+   * cunha recarga forzada.
+   *
+   * `/sen-conexion` xa o comprobaba antes de baixar nada; aquí non, e o efecto
+   * era que a app pedía os mesmos 49 MB unha vez tras outra sen dicir por que.
+   * Non se bloquea a descarga —quen queira identificar un paxaro agora ten
+   * dereito a facelo—, pero dise antes, que é o que promete o resto da app.
+   */
+  const senGardar = ref(false)
+
+  function haiServiceWorker() {
+    return typeof navigator !== 'undefined' && !!navigator.serviceWorker?.controller
+  }
+
   let traballador: Worker | null = null
   let galegas: Galegas | null = null
   // Vai nun shallowRef e non nun `let`: `candidatas()` e `totalGalegas`
@@ -170,6 +190,7 @@ export function useBirdnet() {
         espazoLibre.value = quota != null ? quota - (usage ?? 0) : null
       } catch { espazoLibre.value = null }
     }
+    senGardar.value = !haiServiceWorker()
     if (estado.value !== 'inicial') return
     if (await modeloNoDispositivo()) {
       daCache.value = true
@@ -190,6 +211,9 @@ export function useBirdnet() {
     erro.value = null
     progreso.value = 0
     bytesBaixados.value = 0
+    // Compróbase outra vez e non se reusa o de `comprobar()`: entre abrir a
+    // páxina e premer o botón, o service worker pode acabar de instalarse.
+    senGardar.value = !haiServiceWorker()
     estado.value = 'cargando'
 
     try {
@@ -395,7 +419,7 @@ export function useBirdnet() {
 
   return {
     estado, erro, progreso, bytesBaixados, backend, gpu,
-    deteccions, segundosGravados, msAnalise, espazoLibre, daCache,
+    deteccions, segundosGravados, msAnalise, espazoLibre, daCache, senGardar,
     comprobar, cargar, gravar, parar, candidatas,
     totalGalegas: computed(() => porIndice.value.size),
     mesActual,

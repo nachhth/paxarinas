@@ -6,7 +6,7 @@ useHead({ title: 'Escoitar — Paxariñas' })
 
 const {
   estado, erro, progreso, bytesBaixados, backend, gpu,
-  deteccions, segundosGravados, msAnalise, espazoLibre, daCache,
+  deteccions, segundosGravados, msAnalise, espazoLibre, daCache, senGardar,
   comprobar, cargar, gravar, parar, candidatas, totalGalegas, mesActual,
 } = useBirdnet()
 
@@ -121,9 +121,19 @@ async function aoGravar() {
             <em>non</em> se descargan ao instalar a app: só cando os pides aquí.
             Bótalle wifi.
           </p>
-          <p class="nota">
+          <!-- Só se é verdade: sen service worker activo non queda gardado, e
+               prometelo era o que facía que a app pedise os mesmos 49 MB unha e
+               outra vez sen explicar nada. -->
+          <p v-if="!senGardar" class="nota">
             Queda gardado no dispositivo, así que isto é unha vez soa. Despois
             funciona sen conexión, e ao volver a esta páxina xa non se pide.
+          </p>
+
+          <p v-else class="aviso">
+            <strong>Agora mesmo non quedaría gardado.</strong> A app aínda se
+            está instalando neste dispositivo, así que estes {{ mb(BYTES_MODELO) }}
+            servirían só para esta vez e volverían pedirse ao regresar. Recarga a
+            páxina nuns segundos e o botón xa deixará o modelo posto para sempre.
           </p>
 
           <p v-if="senEspazo" class="aviso">
@@ -149,7 +159,7 @@ async function aoGravar() {
         </div>
 
         <template v-else>
-          <button class="boton" @click="cargar">
+          <button class="boton boton--baixar" @click="cargar">
             Baixar o modelo ({{ mb(BYTES_MODELO) }})
           </button>
           <p v-if="estado === 'erro' && erro" class="aviso">
@@ -283,6 +293,13 @@ async function aoGravar() {
 <style scoped>
 /* `.volver`, `.bloque`, `.boton`, `.aviso` e `.nota` veñen de base.css.
    A barra de progreso non: repítese aquí a mesma que usa /sen-conexion. */
+
+/* O botón viña pegado ao parágrafo de enriba: `.boton` non trae marxe propia
+   porque na maioría dos sitios vai nunha fila con outros. Aquí é o remate dun
+   bloque de texto e precisa aire. */
+.boton--baixar {
+  margin-top: 0.9rem;
+}
 
 .bloque p {
   max-width: 44rem;

@@ -1,3 +1,28 @@
+/**
+ * A CSP do sitio. `evalSt` engade `'unsafe-eval'`, que só precisa `/birdnet/`.
+ *
+ * Constrúese cunha función e non escribindo dúas cadeas para que as dúas
+ * políticas non poidan separarse: o día que se engada un dominio de imaxes ou
+ * se quite o `'unsafe-inline'`, cámbiase nun sitio e vale para as dúas.
+ */
+function csp(evalSt = false) {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'unsafe-inline'${evalSt ? " 'unsafe-eval'" : ''}`,
+    "style-src 'self' 'unsafe-inline'",
+    // Commons serve as fotos da galería desde upload.wikimedia.org.
+    "img-src 'self' data: https://upload.wikimedia.org",
+    "media-src 'self'",
+    "connect-src 'self'",
+    "worker-src 'self'",
+    "manifest-src 'self'",
+    "base-uri 'none'",
+    "object-src 'none'",
+    "form-action 'none'",
+    "frame-ancestors 'none'",
+  ].join('; ')
+}
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2026-08-12',
@@ -142,31 +167,29 @@ export default defineNuxtConfig({
      * `style-src` precisa `'unsafe-inline'` de por vida: os `:style` de Vue
      * (as barras de progreso, a opacidade das comarcas, a bandada) son
      * atributos en liña.
+     *
+     * `'unsafe-eval'` SÓ en `/birdnet/`, e con motivo: TensorFlow.js resolve o
+     * seu obxecto global cun `Function("return this")()`, o clásico dos
+     * empaquetados UMD, así que sen iso o bundle nin sequera se avalía e
+     * `/escoitar` morre cun EvalError antes de baixar o modelo. Vai acotado
+     * porque un worker dedicado colle a CSP da resposta do seu propio script,
+     * non a da páxina: alí dentro non hai DOM, non se pinta nada e o único que
+     * se carga é o TF.js vendorizado do mesmo orixe. O permiso queda no único
+     * sitio que o precisa e as páxinas seguen sen poder avaliar cadeas.
      */
     routeRules: {
       '/**': {
         headers: {
-          'content-security-policy': [
-            "default-src 'self'",
-            "script-src 'self' 'unsafe-inline'",
-            "style-src 'self' 'unsafe-inline'",
-            // Commons serve as fotos da galería desde upload.wikimedia.org.
-            "img-src 'self' data: https://upload.wikimedia.org",
-            "media-src 'self'",
-            "connect-src 'self'",
-            "worker-src 'self'",
-            "manifest-src 'self'",
-            "base-uri 'none'",
-            "object-src 'none'",
-            "form-action 'none'",
-            "frame-ancestors 'none'",
-          ].join('; '),
+          'content-security-policy': csp(),
           // A app pide micrófono (identificar polo son) e localización (a túa
           // comarca). Aquí conténse a si mesma: só para ela e para nada máis.
           'permissions-policy': 'geolocation=(self), microphone=(self), camera=(), payment=(), usb=()',
           'referrer-policy': 'strict-origin-when-cross-origin',
           'x-content-type-options': 'nosniff',
         },
+      },
+      '/birdnet/**': {
+        headers: { 'content-security-policy': csp(true) },
       },
     },
 

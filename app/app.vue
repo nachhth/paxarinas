@@ -28,9 +28,9 @@ const dataDatos = computed(() => dataLonga(catalogo.rexistro?.data))
            liñas ou obrigan a desprazar. A pregunta longa segue estando na
            portada, que é onde ten sitio para respirar. -->
       <nav class="menú">
-        <!-- Primeiro e destacado: é a pregunta coa que chega a xente, non un
-             filtro máis do catálogo. -->
-        <NuxtLink to="/identificar" class="menú__destacado">
+        <!-- Vai primeira a propósito: é a pregunta coa que chega a xente, non
+             un filtro máis do catálogo. A orde abonda; non leva resalte. -->
+        <NuxtLink to="/identificar">
           <svg class="menú__icona" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5 21 21" />
           </svg>
@@ -90,44 +90,12 @@ const dataDatos = computed(() => dataLonga(catalogo.rexistro?.data))
 </template>
 
 <style scoped>
-/* Destacado sen berrar: fondo propio e o laranxa do papo diante, para que se
-   distinga dos dous enlaces de catálogo sen romper a barra verde. */
-.menú a.menú__destacado {
-  gap: 0.4rem;
-  font-weight: 650;
-  background: rgb(255 255 255 / 14%);
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 18%);
-}
-
-.menú a.menú__destacado::before {
-  content: '';
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 50%;
-  background: var(--papo);
-  flex: none;
-}
-
-.menú a.menú__destacado:hover {
-  background: rgb(255 255 255 / 24%);
-}
-
-/* Sen isto o subliñado que marca a páxina activa perderíase, porque a regra de
-   arriba xa gasta a `box-shadow`. */
-.menú a.menú__destacado.router-link-exact-active {
-  background: rgb(255 255 255 / 26%);
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 18%), inset 0 -2px 0 var(--papo);
-}
-
-/* En móbil o menú é icona sobre etiqueta e o punto non cabe ao lado; o fondo
-   propio xa distingue a entrada destacada. Vai aquí e non en base.css porque
-   os estilos con `scoped` levan un atributo que lles dá máis especificidade:
-   desde fóra non se podería anular. */
-@media (max-width: 46rem) {
-  .menú a.menú__destacado::before {
-    display: none;
-  }
-}
+/* «Identificar» xa non leva resalte propio: tiña fondo, borde e un punto laranxa
+   permanentes, e nunha barra de cinco entradas iso líase como «estás aquí» en
+   todas as páxinas. O que a destaca é ir primeira; a cor resérvase para marcar
+   a páxina activa, que é o único que ten que dicir un menú coa cor. O estado
+   activo vén de `.menú a.router-link-exact-active` en base.css, coma nos outros
+   catro. */
 
 /* As dúas ligazóns de servizo van nunha liña propia, separadas do texto de
    atribución: antes ían pegadas ao final do parágrafo e non se vían. */
