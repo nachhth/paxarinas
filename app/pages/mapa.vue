@@ -133,7 +133,7 @@ useHead({ title: 'Mapa por comarcas — Paxariñas' })
               loading="lazy"
               decoding="async"
             >
-            <span v-else class="ave__foto ave__foto--baleira" aria-hidden="true">🪶</span>
+            <span v-else class="ave__foto ave__foto--baleira" aria-hidden="true"><IconaPluma /></span>
 
             <span class="ave__nomes">
               <span class="ave__nome">{{ nomeMostrado(especie) }}</span>

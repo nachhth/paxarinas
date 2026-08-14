@@ -97,7 +97,7 @@ const marcador = computed(() => (posicion.value ? aLenzo([posicion.value.lon, po
           @click="localiza"
         >
           <span v-if="estado === 'buscando'" class="pulso" aria-hidden="true" />
-          <span v-else aria-hidden="true">📍</span>
+          <svg class="chincheta" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.4 7-11.5A7 7 0 0 0 5 9.5C5 14.6 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.6"/></svg>
           {{ estado === 'buscando' ? 'Localizando…' : 'Vese onde estou?' }}
         </button>
 
@@ -166,7 +166,7 @@ const marcador = computed(() => (posicion.value ? aLenzo([posicion.value.lon, po
 }
 
 .onde {
-  fill: var(--toxo);
+  fill: var(--papo);
   stroke: var(--tinta);
   stroke-width: 2;
 }
@@ -217,5 +217,17 @@ const marcador = computed(() => (posicion.value ? aLenzo([posicion.value.lon, po
   color: var(--tinta-suave);
   font-size: 0.9rem;
   text-wrap: pretty;
+}
+
+/* Chincheta debuxada, non o emoji 📍: cada sistema pintábao coas súas cores
+   —vermello e branco— dentro dun botón verde. */
+.chincheta {
+  width: 1.05em;
+  height: 1.05em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  flex: none;
 }
 </style>

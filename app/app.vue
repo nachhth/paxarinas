@@ -16,7 +16,9 @@ const dataDatos = computed(() => dataLonga(catalogo.rexistro?.data))
 
     <header class="cabeceira">
       <NuxtLink to="/" class="marca">
-        <img class="marca__icona" src="/marca.svg" width="34" height="24" alt="">
+        <!-- 34×25 e non 34×24: o `viewBox` do paporrubio é 54×40 e cun 24 de
+             alto o paxaro saía apertado de lados. -->
+        <img class="marca__icona" src="/marca.svg" width="34" height="25" alt="">
         <span class="marca__nome">Paxariñas</span>
         <span class="marca__lema">As aves de Galicia</span>
       </NuxtLink>
@@ -88,7 +90,7 @@ const dataDatos = computed(() => dataLonga(catalogo.rexistro?.data))
 </template>
 
 <style scoped>
-/* Destacado sen berrar: fondo propio e o amarelo do toxo diante, para que se
+/* Destacado sen berrar: fondo propio e o laranxa do papo diante, para que se
    distinga dos dous enlaces de catálogo sen romper a barra verde. */
 .menú a.menú__destacado {
   gap: 0.4rem;
@@ -102,7 +104,7 @@ const dataDatos = computed(() => dataLonga(catalogo.rexistro?.data))
   width: 0.45rem;
   height: 0.45rem;
   border-radius: 50%;
-  background: var(--toxo);
+  background: var(--papo);
   flex: none;
 }
 
@@ -110,11 +112,11 @@ const dataDatos = computed(() => dataLonga(catalogo.rexistro?.data))
   background: rgb(255 255 255 / 24%);
 }
 
-/* Sen isto o subliñado do toxo que marca a páxina activa perderíase, porque a
-   regra de arriba xa gasta a `box-shadow`. */
+/* Sen isto o subliñado que marca a páxina activa perderíase, porque a regra de
+   arriba xa gasta a `box-shadow`. */
 .menú a.menú__destacado.router-link-exact-active {
   background: rgb(255 255 255 / 26%);
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 18%), inset 0 -2px 0 var(--toxo);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 18%), inset 0 -2px 0 var(--papo);
 }
 
 /* En móbil o menú é icona sobre etiqueta e o punto non cabe ao lado; o fondo

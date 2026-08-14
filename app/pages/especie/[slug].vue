@@ -209,7 +209,7 @@ const outrosNomes = computed(() => {
               class="parecida__foto" width="56" height="56"
               loading="lazy" decoding="async"
             >
-            <span v-else class="parecida__foto parecida__foto--baleira" aria-hidden="true">🪶</span>
+            <span v-else class="parecida__foto parecida__foto--baleira" aria-hidden="true"><IconaPluma /></span>
             <span class="parecida__nomes">
               <span class="parecida__nome">{{ nomeMostrado(p) }}</span>
               <span class="parecida__sci">{{ p.cientifico }}</span>
@@ -333,8 +333,16 @@ const outrosNomes = computed(() => {
   align-items: baseline;
   gap: 0.45rem;
   margin: 0 0 var(--oco-g);
-  font-size: 1.05rem;
+  font-family: var(--fonte-titulo);
+  font-size: 1.18rem;
   color: var(--tinta-suave);
+}
+
+/* A autoría do binomio («Linnaeus, 1758») vai en redonda: por convención
+   taxonómica a cursiva é só do xénero e a especie. */
+.cientifico .autoria {
+  font-family: var(--fonte);
+  font-style: normal;
 }
 
 .autoria {
@@ -535,7 +543,8 @@ const outrosNomes = computed(() => {
 
 .parecida__sci {
   display: block;
-  font-size: 0.75rem;
+  font-family: var(--fonte-titulo);
+  font-size: 0.78rem;
   font-style: italic;
   color: var(--tinta-suave);
 }

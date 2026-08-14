@@ -13,7 +13,12 @@ export default defineNuxtConfig({
       description: 'Guía das aves de Galicia en galego.',
       lang: 'gl',
       theme_color: '#2d5016',
-      background_color: '#f4f5f2',
+      /* Pantalla de arranque. Antes era o branco do papel e o resultado era un
+         cadrado verde no medio dun folio en branco. Co mesmo verde da icona, o
+         fondo redondeado da icona fúndese co da pantalla e o que se ve é o
+         paporrubio solo. Ademais é o que menos deslumbra: a app ábrese ao
+         amencer e ao solpor. */
+      background_color: '#2d5016',
       display: 'standalone',
       start_url: '/',
       icons: [

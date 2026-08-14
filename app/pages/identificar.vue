@@ -171,7 +171,7 @@ function alterna(clave: 'habitat' | 'tamano' | 'grupo', valor: string) {
             width="250" height="180"
             loading="lazy" decoding="async"
           >
-          <span v-else class="tarxeta__foto tarxeta__foto--baleira" aria-hidden="true">🪶</span>
+          <span v-else class="tarxeta__foto tarxeta__foto--baleira" aria-hidden="true"><IconaPluma /></span>
           <span class="tarxeta__nome">{{ nomeMostrado(e) }}</span>
           <span class="tarxeta__sci">{{ e.cientifico }}</span>
           <span v-if="e.rasgos?.comparanza" class="tarxeta__rasgo">

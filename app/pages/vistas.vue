@@ -60,7 +60,7 @@ function descarga() {
                 :alt="nomeMostrado(especie)" class="ave__foto"
                 width="56" height="56" loading="lazy" decoding="async"
               >
-              <span v-else class="ave__foto ave__foto--baleira" aria-hidden="true">🪶</span>
+              <span v-else class="ave__foto ave__foto--baleira" aria-hidden="true"><IconaPluma /></span>
               <span class="ave__nomes">
                 <span class="ave__nome">{{ nomeMostrado(especie) }}</span>
                 <span class="ave__sci">{{ especie.cientifico }}</span>
@@ -169,7 +169,8 @@ function descarga() {
 
 .ave__sci {
   display: block;
-  font-size: 0.78rem;
+  font-family: var(--fonte-titulo);
+  font-size: 0.8rem;
   font-style: italic;
   color: var(--tinta-suave);
 }

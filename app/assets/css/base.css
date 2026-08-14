@@ -13,6 +13,35 @@
    definido unicamente dentro dunha `@media` e a folla segue sendo lexible se
    o navegador non resolve a consulta. */
 
+/* ------------------------------------------------------------ 0. Tipografía */
+
+/* Fraunces (Undercase Type), SIL Open Font License 1.1 — public/fontes/OFL.txt.
+   Autoaloxada, non desde un CDN: a app ten que funcionar no monte sen cobertura
+   e a CSP é `default-src 'self'`. Son os dous ficheiros variables do subconxunto
+   latino de Google Fonts (146 kB entre os dous), que xa cobre o galego enteiro
+   —ñ, vogais acentuadas e diérese van todas por baixo de U+00FF—.
+
+   `swap`: o texto pinta desde o primeiro instante coa serif do sistema e cambia
+   cando chega a fonte. Nunha guía que se le con présa e mala cobertura, agardar
+   por unha fonte é peor que un salto tipográfico. */
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fontes/fraunces.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+2122, U+2191, U+2193, U+2212;
+}
+
+@font-face {
+  font-family: 'Fraunces';
+  font-style: italic;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('/fontes/fraunces-italic.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+2122, U+2191, U+2193, U+2212;
+}
+
 /* ---------------------------------------------------------------- 1. Tokens */
 
 :root {
@@ -20,6 +49,13 @@
   --fento: #2d5016;
   --fento-claro: #4a7c2a;
   --toxo: #e8b923;
+  /* Laranxa do papo do paporrubio: a cor de énfase da marca.
+     NON é o #d9622b exacto do logo. Ese, que no debuxo funciona por ser unha
+     mancha grande sobre verde, queda en 2,52:1 contra a cabeceira e en 3,61:1
+     baixo o texto das etiquetas: por baixo do 3:1 que precisa un indicador e do
+     4,5:1 que precisa texto pequeno. Aclarado ata aquí dá 3,39:1 e 4,85:1.
+     Se se toca, medir outra vez eses dous casos. */
+  --papo: #e8823f;
   --granito: #5f6b58;
   --bretema: #f4f5f2;
   --papel: #ffffff;
@@ -40,6 +76,12 @@
   --fento-tenue: #eaf1e2;
   --foco: #4a7c2a;
 
+  /* Pluma dos ocos sen foto, para `.baleiro::before`. O mesmo debuxo que
+     `IconaPluma.vue`; alí é un compoñente porque nun pseudoelemento non cabe.
+     Vai con cor propia e non como máscara de `currentColor`: a pluma ten tres
+     tons e unha máscara aplanaríaos nun só. */
+  --pluma: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23c19a68' d='M18.8 3.4C16.6 4.6 14.6 6.4 13.5 7.5 11.6 9.4 9.6 12.2 8.1 14.9 8 15.6 8 16.2 8 16.8q1.6 1.6 3.7.8.9-.6 2.5-1.3 1.7-.9 1.8-2.7 1.6-1.4 1.2-3.2Q18 8.8 18.8 3.4Z'/%3E%3Cpath fill='%23dcc79d' d='M18.8 3.4C16.6 4.6 14.6 6.4 13.5 7.5 11.6 9.4 9.6 12.2 8.1 14.9 8 15.6 8 16.2 8 16.8 11 12.5 15.5 7.5 18.8 3.4Z'/%3E%3Cpath fill='none' stroke='%238e7448' stroke-width='0.95' stroke-linecap='round' d='M18.8 3.4C15.5 7.5 11.5 12.5 8.7 16.6 7.6 18.2 6.6 19.6 5.6 20.6'/%3E%3C/svg%3E");
+
   --raio-p: 5px;
   --raio: 8px;
   --raio-g: 14px;
@@ -58,6 +100,12 @@
   color-scheme: light;
 
   --fonte: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Serif de titulares e nomes. A da interface segue sendo a do sistema: aquí
+     non se trata de vestir a app enteira, senón de que os títulos e os nomes
+     das especies teñan a voz dunha guía de campo e non a dun panel de control.
+     Os binomios en cursiva serif son a convención de todas as guías desde
+     Lineo, e son o detalle que máis fai que isto pareza unha guía. */
+  --fonte-titulo: 'Fraunces', Georgia, 'Times New Roman', serif;
 
   /* Curva e duración únicas: todo o que se move na app móvese igual. */
   --saída: 180ms cubic-bezier(0.2, 0, 0.2, 1);
@@ -84,7 +132,10 @@
     --cabeceira-fondo: #22301a;
     --fento-tenue: #26301c;
     --boton-tinta: #10160c;
-    --foco: #e8b923;
+    /* Máis claro que no tema claro: sobre fondo escuro o laranxa apágase.
+       6,25:1 contra a cabeceira e 8,12:1 contra o fondo. */
+    --papo: #f0995c;
+    --foco: #f0995c;
     --sombra: 0 1px 2px rgb(0 0 0 / 45%);
     --sombra-alta: 0 2px 6px rgb(0 0 0 / 45%), 0 10px 24px rgb(0 0 0 / 40%);
   }
@@ -104,7 +155,8 @@
   --cabeceira-fondo: #22301a;
   --fento-tenue: #26301c;
   --boton-tinta: #10160c;
-  --foco: #e8b923;
+  --papo: #f0995c;
+  --foco: #f0995c;
   --sombra: 0 1px 2px rgb(0 0 0 / 45%);
   --sombra-alta: 0 2px 6px rgb(0 0 0 / 45%), 0 10px 24px rgb(0 0 0 / 40%);
 }
@@ -134,22 +186,27 @@ body {
 h1,
 h2,
 h3 {
-  line-height: 1.2;
+  font-family: var(--fonte-titulo);
+  /* A Fraunces ten os trazos ascendentes altos e o interliñado de 1,2 pegaba as
+     liñas dun título de dúas. */
+  line-height: 1.25;
   text-wrap: balance;
   margin: 0 0 var(--oco-p);
 }
 
 h1 {
-  font-size: clamp(1.55rem, 1.25rem + 1.5vw, 2.05rem);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: clamp(1.6rem, 1.25rem + 1.7vw, 2.2rem);
+  font-weight: 600;
+  /* Menos apertado que coa fonte do sistema: unha serif con este contraste
+     empástase se se lle quita aire. */
+  letter-spacing: -0.005em;
   margin-bottom: var(--oco);
 }
 
 h2 {
-  font-size: clamp(1.1rem, 1rem + 0.5vw, 1.3rem);
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-size: clamp(1.15rem, 1rem + 0.55vw, 1.38rem);
+  font-weight: 600;
+  letter-spacing: 0;
 }
 
 h3 {
@@ -299,7 +356,7 @@ input[type='radio'] {
 .menú a.router-link-exact-active {
   background: rgb(255 255 255 / 18%);
   font-weight: 600;
-  box-shadow: inset 0 -2px 0 var(--toxo);
+  box-shadow: inset 0 -2px 0 var(--papo);
 }
 
 /* Escribiuse para dous enlaces e xa son cinco. En móbil pasan a icona enriba e
@@ -370,9 +427,10 @@ input[type='radio'] {
 }
 
 .marca__nome {
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-family: var(--fonte-titulo);
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
 }
 
 .marca__lema {
@@ -626,11 +684,16 @@ select:focus-visible {
   text-wrap: pretty;
 }
 
+/* A mesma pluma de `IconaPluma.vue`, aquí como máscara porque isto é un
+   pseudoelemento e non pode levar un compoñente dentro. Vai por `mask` e non
+   por `background-image` para que a pinte `currentColor` e siga o tema: como
+   imaxe de fondo habería que gardar dúas copias, unha por cor. */
 .baleiro::before {
-  content: '🪶';
-  font-size: 1.6rem;
-  opacity: 0.5;
-  line-height: 1;
+  content: '';
+  width: 1.9rem;
+  height: 1.9rem;
+  opacity: 0.85;
+  background: var(--pluma) center / contain no-repeat;
 }
 
 .baleiro__pista {
@@ -666,7 +729,7 @@ select:focus-visible {
   display: inline-block;
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
-  background: var(--toxo);
+  background: var(--papo);
   color: var(--etiqueta-tinta);
   font-size: 0.7rem;
   font-weight: 600;

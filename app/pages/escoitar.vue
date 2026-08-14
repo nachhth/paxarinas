@@ -394,7 +394,8 @@ async function aoGravar() {
 }
 
 .deteccion__nomes em {
-  font-size: 0.82rem;
+  font-family: var(--fonte-titulo);
+  font-size: 0.84rem;
   color: var(--tinta-suave);
 }
 

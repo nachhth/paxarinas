@@ -108,7 +108,11 @@ const resultados = computed(() => {
     <!-- Buscar polo nome só serve a quen xa o sabe. Quen ve un paxaro e non o
          coñece precisa a outra porta, e ten que atopala antes que os filtros. -->
     <NuxtLink to="/identificar" class="chamada">
-      <span class="chamada__icona" aria-hidden="true">🔎</span>
+      <!-- SVG e non un emoji: 🔎 debúxao cada sistema operativo á súa maneira e
+           chegaba con cores propias que non son as da app. -->
+      <svg class="chamada__icona" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5 21 21" />
+      </svg>
       <span>
         <strong>Non sabes que paxaro é?</strong>
         <span class="chamada__pe">Chega a el polo tamaño, o sitio e a época.</span>
@@ -164,7 +168,9 @@ const resultados = computed(() => {
             loading="lazy"
             decoding="async"
           >
-          <span v-else class="tarxeta__foto tarxeta__foto--baleira" aria-hidden="true">🪶</span>
+          <span v-else class="tarxeta__foto tarxeta__foto--baleira" aria-hidden="true">
+            <IconaPluma />
+          </span>
 
           <span class="tarxeta__nome">{{ nomeMostrado(e) }}</span>
           <span class="tarxeta__sci">{{ e.cientifico }}</span>
@@ -206,8 +212,13 @@ const resultados = computed(() => {
 }
 
 .chamada__icona {
-  font-size: 1.5rem;
+  width: 1.6rem;
+  height: 1.6rem;
   flex: none;
+  fill: none;
+  stroke: var(--fento);
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
 .chamada__pe {
@@ -310,8 +321,10 @@ const resultados = computed(() => {
 .tarxeta__foto--baleira {
   display: grid;
   place-items: center;
-  font-size: 2rem;
-  opacity: 0.35;
+  /* `IconaPluma` mide 1em, así que o tamaño decídese aquí. Xa non se lle pasa
+     `color`: a pluma leva os seus tres tons. */
+  font-size: 2.6rem;
+  opacity: 0.85;
 }
 
 .tarxeta:hover {
@@ -320,11 +333,18 @@ const resultados = computed(() => {
 
 .tarxeta__nome {
   display: block;
+  font-family: var(--fonte-titulo);
+  font-size: 1.06rem;
   font-weight: 600;
+  line-height: 1.25;
 }
 
+/* O binomio en cursiva serif. É a convención de todas as guías de campo, e é o
+   que fai que unha lista de nomes científicos se lea como unha guía e non como
+   unha táboa de base de datos. */
 .tarxeta__sci {
   display: block;
+  font-family: var(--fonte-titulo);
   font-style: italic;
   font-size: 0.9rem;
   color: var(--tinta-suave);
@@ -341,8 +361,8 @@ const resultados = computed(() => {
   display: inline-block;
   padding: 0 0.35rem;
   border-radius: 4px;
-  background: var(--toxo);
-  color: #3a2f00;
+  background: var(--papo);
+  color: var(--etiqueta-tinta);
   font-size: 0.7rem;
   font-weight: 600;
 }

@@ -149,6 +149,23 @@ const porLicenza = computed(() => {
     </section>
 
     <section class="bloque">
+      <h2>Tipografía e marca</h2>
+      <p>
+        Os titulares e os nomes das especies van en
+        <a href="https://github.com/undercasetype/Fraunces">Fraunces</a>, de
+        Undercase Type, baixo
+        <a href="/fontes/OFL.txt" rel="license">SIL Open Font License 1.1</a>.
+        Vai aloxada aquí mesmo e non nun servidor de fontes: a app ten que
+        funcionar no monte sen cobertura.
+      </p>
+      <p class="engadido">
+        O paxaro da marca é un <strong>paporrubio</strong>
+        (<em>Erithacus rubecula</em>), debuxado para este proxecto a partir
+        dunha fotografía.
+      </p>
+    </section>
+
+    <section class="bloque">
       <h2>Identificación polo son</h2>
       <p>
         A identificación de cantos faina <strong>BirdNET</strong> GLOBAL 6K

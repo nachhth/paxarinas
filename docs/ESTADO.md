@@ -434,6 +434,28 @@ lista por nombre las que admite como dudosas: si algún día entra una que no
 debía, se ve. Apareció revisando este documento, porque las etapas contaban 393
 especies habituales y el catálogo 392.
 
+**La serif es solo para titulares y nombres, no para la interfaz.** Toda la app
+estaba en `system-ui` y por eso parecía un visor de base de datos y no una guía
+de campo. Fraunces (OFL, autoalojada, 146 kB de más en el precache) va en los
+h1-h3, la marca y los nombres de especie; **los binomios en cursiva serif**, que
+es la convención de cualquier guía desde Linneo, es lo que más cambia la
+percepción. Los controles siguen en la fuente del sistema: vestir también los
+botones y los filtros haría la app más lenta de leer, no más bonita.
+
+La autoría del binomio («Linnaeus, 1758») va en redonda y en la sans: por
+convención taxonómica la cursiva es solo del género y la especie.
+
+**El logo es un paporrubio y está dibujado a mano en SVG.** Tres cosas que
+costaron y no conviene deshacer: la silueta es **una sola curva continua** —
+cabeza, cuerpo y cola del mismo trazo, con cintura en el vientre—, porque
+montado como elipse más cuña salía una pala de ping-pong; el **pardo es la base**
+y el vientre claro va encima, porque al revés la cola salía partida en dos a lo
+largo; y todo el relleno va recortado con `clipPath` contra la silueta, así los
+bordes casan siempre. Se comprobó renderizado a 16, 24, 32, 48, 64 y 320 px, en
+claro y en oscuro. El `icon-maskable-512` **no es el mismo dibujo escalado**: va
+al 76% sobre fondo a sangre, porque Android recorta una máscara y solo garantiza
+el 80% central.
+
 **Wikidata mete falsos positivos**: cuando una especie no tiene nombre popular
 en gallego, `rdfs:label` devuelve el propio nombre científico. Se filtran 27 así.
 Cualquier fuente nueva de nombres necesita el mismo cuidado.
