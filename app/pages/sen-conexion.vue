@@ -6,7 +6,8 @@ const catalogo = useCatalogo()
 useHead({ title: 'Uso sen conexión — Paxariñas' })
 
 const {
-  estado, feitos, fallos, bytes, total, porcentaxe, descargar, cancelar,
+  estado, feitos, fallos, bytes, total, porcentaxe,
+  gardados, pendentes, aBaixar, revisar, descargar, cancelar,
 } = useDescargaOffline(catalogo.especies)
 
 const fotos = computed(() => catalogo.especies.filter(e => e.foto).length)
@@ -82,6 +83,8 @@ onMounted(async () => {
   precargaSonActiva.value = preferenciaPrecarga() === 'auto'
   motivoPrecarga.value = motivoOmision()
   await revisaModelo()
+  // Canto hai xa: sen isto o botón ofrecía os 1.247 ficheiros tivéraos ou non.
+  await revisar()
 })
 watch(precargaSonActiva, (v) => gardaPreferenciaPrecarga(v ? 'auto' : 'nunca'))
 
@@ -143,7 +146,7 @@ watch(estado, async (v) => {
         </div>
         <p class="progreso">
           <span class="progreso__pct">{{ porcentaxe }}%</span>
-          {{ feitos }} de {{ total }} · {{ formatoMB(bytes) }}
+          {{ feitos }} de {{ aBaixar }} · {{ formatoMB(bytes) }}
           <template v-if="fallos"> · {{ fallos }} fallidos</template>
         </p>
         <button class="boton boton--suave" @click="cancelar">Cancelar</button>
@@ -152,11 +155,20 @@ watch(estado, async (v) => {
       <template v-else>
         <!-- Antes dicía «Descargar todo», e non era todo: o modelo de son
              quedaba fóra e despois /escoitar seguía pedíndoo. -->
-        <button class="boton" @click="descargar">
-          Descargar as fotos e os cantos ({{ total }} ficheiros)
+        <!-- O botón di o que falta, non o total: ofrecer 1.247 ficheiros a quen
+             xa os ten é pedirlle que baixe algo que non precisa. -->
+        <button class="boton" :disabled="pendentes === 0" @click="descargar">
+          <template v-if="gardados === null">
+            Descargar as fotos e os cantos ({{ total }} ficheiros)
+          </template>
+          <template v-else-if="pendentes === 0">Xa está todo descargado</template>
+          <template v-else-if="gardados === 0">
+            Descargar as fotos e os cantos ({{ total }} ficheiros)
+          </template>
+          <template v-else>Descargar o que falta ({{ pendentes }} ficheiros)</template>
         </button>
 
-        <p v-if="estado === 'feito'" class="aviso aviso--ben">
+        <p v-if="estado === 'feito' || (estado === 'inactivo' && pendentes === 0 && gardados)" class="aviso aviso--ben">
           Listo. Xa tes as {{ total }} fotos e cantos no dispositivo.
         </p>
 

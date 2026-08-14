@@ -127,6 +127,27 @@ export function useBirdnet() {
     return typeof navigator !== 'undefined' && !!navigator.serviceWorker?.controller
   }
 
+  /**
+   * O aviso ten que apagarse só cando o service worker toma o control.
+   *
+   * A primeira vez que se abre a app, `controller` é null uns segundos: o worker
+   * instálase e despois reclama as páxinas abertas (`clientsClaim`). Mirándoo
+   * unha soa vez ao montar, o aviso quedaba posto para sempre aínda que xa non
+   * fose certo, e daba a entender que a descarga non se ía gardar cando si.
+   */
+  let deixaDeVixiar: (() => void) | null = null
+
+  function vixiaServiceWorker() {
+    if (typeof navigator === 'undefined' || !navigator.serviceWorker) return
+    const sw = navigator.serviceWorker
+    const revisa = () => { senGardar.value = !haiServiceWorker() }
+    sw.addEventListener('controllerchange', revisa)
+    // `ready` cobre o caso de que o control chegase entre o `comprobar()` e este
+    // rexistro: aí non habería evento que escoitar.
+    sw.ready.then(revisa).catch(() => { /* sen rexistro: o aviso queda posto */ })
+    deixaDeVixiar = () => sw.removeEventListener('controllerchange', revisa)
+  }
+
   let traballador: Worker | null = null
   let galegas: Galegas | null = null
   // Vai nun shallowRef e non nun `let`: `candidatas()` e `totalGalegas`
@@ -197,6 +218,7 @@ export function useBirdnet() {
       } catch { espazoLibre.value = null }
     }
     senGardar.value = !haiServiceWorker()
+    vixiaServiceWorker()
     if (estado.value !== 'inicial') return
     if (await modeloNoDispositivo()) {
       daCache.value = true
@@ -409,6 +431,7 @@ export function useBirdnet() {
   }
 
   onScopeDispose(() => {
+    deixaDeVixiar?.()
     parar()
     deténCronos()
     pista?.getTracks().forEach(t => t.stop())
