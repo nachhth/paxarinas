@@ -1,14 +1,11 @@
 /**
- * A CSP do sitio. `evalSt` engade `'unsafe-eval'`, que só precisa `/birdnet/`.
- *
- * Constrúese cunha función e non escribindo dúas cadeas para que as dúas
- * políticas non poidan separarse: o día que se engada un dominio de imaxes ou
- * se quite o `'unsafe-inline'`, cámbiase nun sitio e vale para as dúas.
+ * A CSP do sitio. Unha soa, igual para todo: non hai ningunha ruta cun permiso
+ * especial, e convén que siga sendo así.
  */
-function csp(evalSt = false) {
+function csp() {
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${evalSt ? " 'unsafe-eval'" : ''}`,
+    "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
     // Commons serve as fotos da galería desde upload.wikimedia.org.
     "img-src 'self' data: https://upload.wikimedia.org",
@@ -98,19 +95,46 @@ export default defineNuxtConfig({
           },
         },
         {
-          // BirdNET: 51 MB fóra do precache. Como coas fotos grandes e os
-          // cantos, `/escoitar` pídeo con `fetch` e é este `CacheFirst` quen o
-          // garda; a páxina non escribe na Cache API. Sen esta regra o modelo
-          // habería que rebaixalo cada vez, que é xusto o que non pode pasar
-          // cando a app se usa no monte.
+          // O MODELO: 49 MB de pesos que non cambian nunca. Como coas fotos
+          // grandes e os cantos, `/escoitar` pídeo con `fetch` e é este
+          // `CacheFirst` quen o garda; a páxina non escribe na Cache API. Sen
+          // esta regra habería que rebaixalo cada vez, que é xusto o que non
+          // pode pasar cando a app se usa no monte.
           //
           // `maximumFileSizeToCacheInBytes` non se aplica aquí: é un límite do
           // precache, e os shards son de 4 MB.
-          urlPattern: /\/birdnet\//,
+          //
+          // Conserva o nome de caché de sempre a propósito: quen xa baixou os
+          // 49 MB non ten por que volver baixalos por esta reorganización.
+          urlPattern: /\/birdnet\/modelo\//,
           handler: 'CacheFirst',
           options: {
             cacheName: 'paxarinas-birdnet',
             expiration: { maxEntries: 40, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        },
+        {
+          // O CÓDIGO (worker, TF.js, melspec, lista galega): ~1,8 MB que si
+          // cambian, e que van aparte por unha lección cara.
+          //
+          // Estando todo baixo un `CacheFirst` de un ano, o worker quedou
+          // gardado coas cabeceiras que tiña o día que se baixou. Cando se
+          // engadiu a CSP sen `'unsafe-eval'` (commit `e9d0f8d`), a copia
+          // gardada quedou con esa CSP dentro; e como un worker colle a CSP da
+          // resposta do seu propio script, `/escoitar` seguía morrendo cun
+          // EvalError aínda despois de arranxar a cabeceira no servidor. O
+          // arranxo estaba publicado e non lle chegaba a ninguén.
+          //
+          // `StaleWhileRevalidate`: segue funcionando sen cobertura —serve o
+          // gardado— pero pide a versión nova por detrás, así que un arranxo
+          // chega á seguinte visita en vez de nunca. E o nome de caché é novo,
+          // co que as copias envelenadas quedan fóra de xogo dunha vez.
+          urlPattern: /\/birdnet\//,
+          handler: 'StaleWhileRevalidate',
+          options: {
+            cacheName: 'paxarinas-birdnet-codigo',
+            expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
             cacheableResponse: { statuses: [0, 200] },
           },
         },
@@ -168,14 +192,16 @@ export default defineNuxtConfig({
      * (as barras de progreso, a opacidade das comarcas, a bandada) son
      * atributos en liña.
      *
-     * `'unsafe-eval'` SÓ en `/birdnet/`, e con motivo: TensorFlow.js resolve o
-     * seu obxecto global cun `Function("return this")()`, o clásico dos
-     * empaquetados UMD, así que sen iso o bundle nin sequera se avalía e
-     * `/escoitar` morre cun EvalError antes de baixar o modelo. Vai acotado
-     * porque un worker dedicado colle a CSP da resposta do seu propio script,
-     * non a da páxina: alí dentro non hai DOM, non se pinta nada e o único que
-     * se carga é o TF.js vendorizado do mesmo orixe. O permiso queda no único
-     * sitio que o precisa e as páxinas seguen sen poder avaliar cadeas.
+     * NON hai `'unsafe-eval'` en ningures, e non debe volver. TensorFlow.js
+     * avaliaba cadeas en dous sitios e por iso houbo unha excepción para
+     * `/birdnet/`; agora esas dúas liñas parchéanse ao vendorizar
+     * (`etl/birdnet/vendor_tfjs.mjs`), que é onde ten que arranxarse. Abrir a
+     * cabeceira daríalle o permiso a 1,4 MB de código de terceiros para
+     * sempre; o parche son dúas substitucións comprobadas.
+     *
+     * Aquilo custou caro por outra razón, anotada na regra de caché de
+     * `/birdnet/`: a excepción publicouse e non lle chegou a ninguén, porque o
+     * worker xa estaba gardado nun `CacheFirst` coas cabeceiras vellas dentro.
      */
     routeRules: {
       '/**': {
@@ -187,9 +213,6 @@ export default defineNuxtConfig({
           'referrer-policy': 'strict-origin-when-cross-origin',
           'x-content-type-options': 'nosniff',
         },
-      },
-      '/birdnet/**': {
-        headers: { 'content-security-policy': csp(true) },
       },
     },
 

@@ -170,6 +170,12 @@ export function useBirdnet() {
     }
     traballador.onerror = (e) => {
       erro.value = e.message || 'o worker de BirdNET non arrancou'
+      // `daCache` tamén se solta aquí, e non só no `catch` de `cargar()`: cando
+      // o worker peta ao avaliarse —unha CSP que non deixa, un ficheiro a
+      // medias— non hai promesa que rexeitar, así que aquel `catch` nin se
+      // executa. A ficha quedaba dicindo «xa está no teu dispositivo, só falta
+      // preparalo» cun botón debaixo ofrecendo baixar 49 MB.
+      daCache.value = false
       estado.value = 'erro'
     }
   }

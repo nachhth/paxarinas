@@ -159,8 +159,15 @@ async function aoGravar() {
         </div>
 
         <template v-else>
+          <!-- A etiqueta segue ao estado e non é fixa: dicir «Baixar o modelo
+               (49 MB)» debaixo dun «xa está no teu dispositivo» é contarlle á
+               xente dúas cousas distintas no mesmo sitio. -->
           <button class="boton boton--baixar" @click="cargar">
-            Baixar o modelo ({{ mb(BYTES_MODELO) }})
+            <template v-if="daCache">Preparar o modelo</template>
+            <template v-else-if="estado === 'erro'">
+              Tentalo de novo ({{ mb(BYTES_MODELO) }})
+            </template>
+            <template v-else>Baixar o modelo ({{ mb(BYTES_MODELO) }})</template>
           </button>
           <p v-if="estado === 'erro' && erro" class="aviso">
             Non se puido cargar: {{ erro }}
