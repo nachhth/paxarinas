@@ -35,6 +35,25 @@ COMMONS = "https://commons.wikimedia.org/w/api.php"
 
 POR_ESPECIE = 20
 
+# Canto se afonda cando a categoría da especie non dá abondo. Commons arquiva
+# as especies moi fotografadas en subcategorías («in flight», «by country») e
+# deixa na de arriba catro ficheiros soltos: sen mirar dentro, a carriza e o
+# ferreiriño rabilongo quedaban sen galería. Seis é o que fai falla para xuntar
+# vinte fotos nas que se probaron, e pon un teito ao número de peticións.
+MAX_SUBCATS = 6
+
+# Subcategorías nas que non hai fotos do paxaro vivo. Son as mesmas cousas que
+# xa filtra `CATEGORIA_FÓRA` en common.py, pero hai que sabelo ANTES de pedir os
+# ficheiros: aquí decídese en que categorías nin se entra.
+SUBCAT_FÓRA = re.compile(
+    r"(audio|sound|video|egg|nest|feather|skeleton|skull|bone|specimen|"
+    r"taxiderm|museum|collection|illustration|drawing|painting|engraving|"
+    r"stamp|coin|map|diagram|sonogram|spectrogram|"
+    r"captivity|captive|aviar|zoo|falconry|ringing|banding|"
+    r"unidentified|dead|tracks)",
+    re.IGNORECASE,
+)
+
 # Dous tamaños: a miniatura da grella e a que se ve ao ampliar. Wikimedia só
 # serve unha lista pechada de anchos, e 330 e 960 están nela.
 ANCHO_GRELLA = 330
@@ -44,11 +63,12 @@ ANCHO_GRANDE = 960
 # coa foto principal, porque o erro é o mesmo nas dúas.
 
 
-def fotos_de(sci: str, ancho: int) -> list[dict]:
+def fotos_de(categoria: str, ancho: int) -> list[dict]:
+    """As fotos utilizables que hai DENTRO dunha categoría de Commons."""
     data = get_json(COMMONS, {
         "action": "query", "format": "json",
         "generator": "categorymembers",
-        "gcmtitle": f"Category:{sci}",
+        "gcmtitle": categoria,
         "gcmtype": "file",
         "gcmlimit": 50,
         # As categorías veñen na mesma petición: filtrar por elas non custa
@@ -100,6 +120,171 @@ def fotos_de(sci: str, ancho: int) -> list[dict]:
     return candidatas
 
 
+def subcategorias(categoria: str) -> list[str]:
+    """As subcategorías onde pode haber fotos do paxaro, xa filtradas."""
+    data = get_json(COMMONS, {
+        "action": "query", "format": "json",
+        "list": "categorymembers",
+        "cmtitle": categoria,
+        "cmtype": "subcat",
+        "cmlimit": 50,
+    })
+    titulos = [m["title"] for m in data.get("query", {}).get("categorymembers", [])]
+    return [t for t in titulos if not SUBCAT_FÓRA.search(t)]
+
+
+def parentes(categoria: str) -> list[str]:
+    """As categorías nas que está esta categoría."""
+    data = get_json(COMMONS, {
+        "action": "query", "format": "json",
+        "titles": categoria,
+        "prop": "categories",
+        "cllimit": 50,
+        "clshow": "!hidden",
+    })
+    saida = []
+    for paxina in data.get("query", {}).get("pages", {}).values():
+        saida += [c["title"].removeprefix("Category:")
+                  for c in paxina.get("categories", [])]
+    return saida
+
+
+def mesmo_taxon(categoria: str, familia: str | None, xenero: str | None) -> bool:
+    """Se esa categoría é deste bicho e non doutro que se chama parecido.
+
+    Isto non é unha precaución teórica: buscando a papuxa cabecinegra («Sylvia
+    melanocephala») o buscador de Commons devolve «Euryglossina
+    melanocephala», que é unha abella. Sen comprobalo, a ficha dun paxaro
+    remataría cunha galería de himenópteros.
+
+    Commons pon en cada categoría de especie o xénero e a familia («Curruca»,
+    «Species of Sylviidae»), e iso abonda: se non aparece nin a familia nin o
+    xénero que dá GBIF, non se usa.
+    """
+    if not familia and not xenero:
+        return False
+    arriba = " · ".join(parentes(categoria))
+    return bool((familia and familia.lower() in arriba.lower())
+                or (xenero and xenero.lower() in arriba.lower()))
+
+
+def categoria_alternativa(sci: str, familia: str | None,
+                          xenero: str | None) -> str | None:
+    """A categoría de Commons desta especie cando non se chama coma ela.
+
+    A taxonomía móvese e Commons vai por diante de GBIF: o corvo mariño
+    cristado está en «Gulosus aristotelis», a papuxa do mato en «Curruca
+    undata» e o ferreiriño palustre en «Poecile montanus». A categoría co nome
+    que dá GBIF existe, pero está baleira, así que a especie quedaba sen
+    galería aínda tendo centos de fotos.
+
+    Búscase primeiro polo nome enteiro, que é o que atopa as erratas do nome
+    científico («sibillatrix» por «sibilatrix»), e despois polo epíteto no
+    título: o buscador non sempre pon a categoría boa entre as primeiras
+    —«Curruca melanocephala» quedaba detrás de «Quality images of Sylvia
+    melanocephala»—, pero polo epíteto aparece. Todo candidato pasa despois por
+    `mesmo_taxon`, porque buscar por epíteto trae bichos doutras clases.
+    """
+    xa = f"Category:{sci}".lower()
+    epiteto = sci.split()[-1].lower()
+
+    def candidatas(consulta: str) -> list[str]:
+        data = get_json(COMMONS, {
+            "action": "query", "format": "json",
+            "list": "search",
+            "srsearch": consulta,
+            "srnamespace": 14,   # Category:
+            "srlimit": 10,
+        })
+        saida = []
+        for r in data.get("query", {}).get("search", []):
+            titulo = r["title"]
+            nome = titulo.removeprefix("Category:")
+            if titulo.lower() == xa:
+                continue
+            # Dúas palabras e sen paréntese: iso é un nome de especie, non
+            # «... (juvenile)» nin «Quality images of ...».
+            if len(nome.split()) == 2 and "(" not in nome:
+                saida.append(titulo)
+        return saida
+
+    vistas = []
+    for consulta in (sci, f'intitle:"{epiteto}"'):
+        for cat in candidatas(consulta):
+            if cat in vistas:
+                continue
+            vistas.append(cat)
+            if mesmo_taxon(cat, familia, xenero):
+                return cat
+    return None
+
+
+def fotos_da_especie(sci: str, familia: str | None = None,
+                     xenero: str | None = None) -> tuple[list[dict], list[str]]:
+    """Fotos da especie e as categorías de onde saíron, por esta orde:
+
+      1. a categoría co seu nome científico;
+      2. as subcategorías dela, se non chegan (`MAX_SUBCATS`);
+      3. a categoría co nome que Commons use agora, se non hai ningunha.
+
+    Devólvense tamén as categorías usadas, que non é un detalle: serven para
+    dicir no resumo por que unha especie non ten galería.
+    """
+    usadas: list[str] = []
+    fotos: list[dict] = []
+    vistos: set[str] = set()
+
+    def engade(categoria: str) -> None:
+        usadas.append(categoria)
+        for c in fotos_de(categoria, ANCHO_GRELLA):
+            if c["ficheiro"] not in vistos:
+                vistos.add(c["ficheiro"])
+                fotos.append(c)
+
+    def busca_en(raiz: str) -> None:
+        engade(raiz)
+        if len(fotos) >= POR_ESPECIE:
+            return
+        for sub in subcategorias(raiz)[:MAX_SUBCATS]:
+            engade(sub)
+            if len(fotos) >= POR_ESPECIE:
+                return
+
+    busca_en(f"Category:{sci}")
+
+    if not fotos:
+        outra = categoria_alternativa(sci, familia, xenero)
+        if outra:
+            busca_en(outra)
+
+    return fotos, usadas
+
+
+def amplia(ficheiros: list[str], ancho: int) -> dict[str, str]:
+    """A URL de cada foto ao tamaño grande, nunha soa petición.
+
+    Antes pedíase outra vez a categoría enteira co ancho grande. Preguntando
+    polos ficheiros concretos dá igual en que categoría estean —agora poden
+    vir de varias— e son 50 nunha chamada en vez dunha chamada por categoría.
+    """
+    if not ficheiros:
+        return {}
+    data = get_json(COMMONS, {
+        "action": "query", "format": "json",
+        "titles": "|".join(f"File:{f}" for f in ficheiros[:50]),
+        "prop": "imageinfo",
+        "iiprop": "url",
+        "iiurlwidth": ancho,
+    })
+    grandes = {}
+    for paxina in data.get("query", {}).get("pages", {}).values():
+        info = (paxina.get("imageinfo") or [{}])[0]
+        if info.get("thumburl"):
+            titulo = paxina.get("title", "").removeprefix("File:")
+            grandes[titulo] = info["thumburl"].split("?")[0]
+    return grandes
+
+
 def main() -> None:
     fonte = OUT_DIR / "gbif_especies.json"
     if not fonte.exists():
@@ -122,7 +307,8 @@ def main() -> None:
 
     for i, e in enumerate(especies, 1):
         sci = e["nomeCientifico"]
-        candidatas = fotos_de(sci, ANCHO_GRELLA)
+        candidatas, categorias = fotos_da_especie(
+            sci, e.get("familia"), e.get("xenero"))
 
         principal = principais.get(sci)
         escollidas = [c for c in candidatas if c["ficheiro"] != principal][:POR_ESPECIE]
@@ -130,15 +316,16 @@ def main() -> None:
         # Só se piden as grandes das que quedaron: pedir as 50 sería tres veces
         # máis tráfico contra Wikimedia para tirar dous tercios.
         if escollidas:
-            grandes = {g["ficheiro"]: g["url"]
-                       for g in fotos_de(sci, ANCHO_GRANDE)}
+            grandes = amplia([c["ficheiro"] for c in escollidas], ANCHO_GRANDE)
             for c in escollidas:
                 # Se a orixinal é máis pequena ca 960 px, Commons non a amplía e
                 # devolve o que ten: nese caso vale a mesma da grella.
                 c["urlGrande"] = url_segura(grandes.get(c["ficheiro"])) or c["url"]
 
         if not escollidas:
-            sen_ningunha.append(sci)
+            # Anótase en que categorías se buscou: sen iso, unha especie sen
+            # galería non se distingue dun erro noso.
+            sen_ningunha.append({"especie": sci, "probadas": categorias})
             continue
 
         s = slug(sci)

@@ -9,12 +9,12 @@ const props = defineProps<{ canto: Canto, especie: string }>()
  * o sabemos por estar na praza do canto.
  */
 const MATICES: Record<string, string> = {
-  'alarm call': 'reclamo de alarma',
-  'flight call': 'reclamo en voo',
-  'begging call': 'reclamo de pedinchada',
-  'nocturnal flight call': 'reclamo nocturno',
-  drumming: 'tamborileo',
-  subsong: 'canto en baixo',
+  'alarm call': 'Reclamo de alarma',
+  'flight call': 'Reclamo en voo',
+  'begging call': 'Reclamo de pedinchada',
+  'nocturnal flight call': 'Reclamo nocturno',
+  drumming: 'Tamborileo',
+  subsong: 'Canto en baixo',
 }
 
 const XENERICO: Record<string, string> = { canto: 'Canto', reclamo: 'Reclamo' }
@@ -189,7 +189,31 @@ onUnmounted(para)
 </template>
 
 <style scoped>
+/* O elemento da rexilla é este, non o botón: hai que pasarlle o alto ao botón,
+   que se non o do lugar curto quedaba máis baixo ca o do lado.
+   Estirar `.son` non abondaba: o crédito de abaixo mide unha ou dúas liñas
+   segundo o longo do nome de quen gravou, e esa diferenza saíalle do botón.
+   Con `subgrid` o botón e o crédito de cada gravación entran nas filas do pai
+   (`.sons`), así que os dous botóns comparten fila e miden igual. */
+.son {
+  display: grid;
+  grid-row: span 2;
+  grid-template-rows: subgrid;
+}
+
+/* Onde non haxa `subgrid` —navegadores anteriores a 2023— vólvese ao de antes:
+   botóns do mesmo alto de fila e a diferenza do crédito repartida. Peor, pero
+   nada rompe. */
+@supports not (grid-template-rows: subgrid) {
+  .son {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+}
+
 .son__boton {
+  flex: 1;
   position: relative;
   overflow: hidden;
   width: 100%;
@@ -274,17 +298,22 @@ onUnmounted(para)
   font-size: 1rem;
   font-weight: 600;
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .son__pe {
   font-size: 0.72rem;
   line-height: 1.3;
   color: var(--tinta-suave);
-  /* O lugar pode ser longo: unha liña e puntos suspensivos. O enderezo enteiro
-     queda no `title` e na atribución. */
+  /* Dobra ata dúas liñas e corta aí. Nunha soa liña con puntos perdíase o nome
+     do sitio case enteiro, e sen tope un topónimo longo facía o botón o dobre
+     de alto ca o seu compañeiro. O enderezo completo segue no `title`. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Un nome sen espazos e máis longo ca a columna tamén ten que partir. */
+  overflow-wrap: anywhere;
 }
 
 .son__credito {

@@ -81,7 +81,7 @@ const marcador = computed(() => (posicion.value ? aLenzo([posicion.value.lon, po
           <title>
             {{ zona.nome }} —
             {{ citasPorZona.get(zona.id)
-              ? `${citasPorZona.get(zona.id)!.toLocaleString('gl')} citas`
+              ? `${numero(citasPorZona.get(zona.id)!)} citas`
               : 'sen citas' }}
           </title>
         </path>
@@ -106,7 +106,7 @@ const marcador = computed(() => (posicion.value ? aLenzo([posicion.value.lon, po
         <p v-else-if="zonaActual" class="nota" role="status">
           <template v-if="zonaActual.citas">
             Si: en <strong>{{ zonaActual.zona.nome }}</strong> hai
-            {{ zonaActual.citas.toLocaleString('gl') }} citas desta ave.
+            {{ numero(zonaActual.citas) }} citas desta ave.
           </template>
           <template v-else>
             En <strong>{{ zonaActual.zona.nome }}</strong> non consta ningunha

@@ -169,7 +169,7 @@ const porProvincia = computed(() => {
       <strong>{{ zonaSeleccionada.nome }}</strong>
       <span v-if="zonaSeleccionada.provincia"> · {{ zonaSeleccionada.provincia }}</span>
       · {{ zonaSeleccionada.especies.length }} especies
-      · {{ zonaSeleccionada.citas.toLocaleString('gl') }} citas
+      · {{ numero(zonaSeleccionada.citas) }} citas
     </p>
   </div>
 </template>

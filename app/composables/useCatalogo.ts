@@ -87,3 +87,21 @@ export function ligazon(url: string | null | undefined): string | null {
   if (!url) return null
   return /^https?:\/\//i.test(url.trim()) ? url : null
 }
+
+/**
+ * Un número con puntos de milleiro: 8.638.
+ *
+ * Faise a man e non con `toLocaleString('gl-ES')`, que era o que había. O
+ * problema é que non todos os motores coñecen o galego: ao prerenderizar, Node
+ * escribía «8.638», e no navegador saía «8638». Vue detectaba a diferenza ao
+ * hidratar e reescribía o nodo —«Hydration completed but contains
+ * mismatches»—, e o número cambiaba diante de quen o estea a ler.
+ *
+ * Con separador propio o resultado é o mesmo en todas partes, que é o que
+ * importa nun sitio que se xera unha vez e se serve estático.
+ */
+export function numero(n: number): string {
+  return String(Math.trunc(Math.abs(n)))
+    .replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+    .replace(/^/, n < 0 ? '-' : '')
+}

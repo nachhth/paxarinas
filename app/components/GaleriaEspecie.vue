@@ -17,6 +17,12 @@ async function amosar() {
   estado.value = 'cargando'
   try {
     const r = await fetch(`/data/galeria/${props.slug}.json`)
+    // Un 404 non é un fallo de conexión: é que esta especie non ten galería.
+    // Dicir «non se puideron cargar, precisan conexión» sería mentir, e
+    // ademais convida a premer «tentar de novo» para sempre. A ficha xa non
+    // debería chegar aquí (ver `galeria` no catálogo), pero un ficheiro
+    // borrado ou un slug cambiado non ten por que parecer un erro de rede.
+    if (r.status === 404) { estado.value = 'baleira'; return }
     if (!r.ok) throw new Error(String(r.status))
     const d = await r.json() as Galeria
     fotos.value = d.fotos ?? []

@@ -2,7 +2,29 @@
 import type { Especie } from '~/types/catalogo'
 
 const route = useRoute()
+const router = useRouter()
 const catalogo = useCatalogo()
+
+/**
+ * A frecha de atrás desanda o historial en vez de ir sempre á portada.
+ *
+ * Importa porque desde a lista de aves —que é longa— ir a «/» devolvía ao alto
+ * de todo, e había que buscar outra vez onde se quedara un. Con `back()` o
+ * navegador restaura o desprazamento, e se se chegou aquí desde outra ave
+ * vólvese a esa.
+ *
+ * Segue sendo un `<NuxtLink to="/">` e non un botón: se se entra directo á
+ * ficha —unha ligazón compartida, unha aba nova— non hai historial ao que
+ * volver, e entón a ligazón funciona tal cal. Iso é tamén o que fai que se
+ * poida abrir nunha aba nova ou copiar o enderezo.
+ */
+function volve() {
+  // `history.state.back` é null se esta é a primeira páxina da sesión: aí non
+  // hai nada que desandar, e sen o `push` a frecha non faría nada, porque o
+  // `@click.prevent` do modelo xa cancelou a navegación da ligazón.
+  if (import.meta.client && window.history.state?.back) router.back()
+  else router.push('/')
+}
 
 /**
  * Gárdase o índice e non só a especie: o ficheiro de zonas refírese ás
@@ -136,7 +158,7 @@ const outrosNomes = computed(() => {
       <div class="heroe__veo" aria-hidden="true" />
 
       <div class="heroe__accions">
-        <NuxtLink to="/" class="heroe__volver" aria-label="Volver a todas as aves">
+        <NuxtLink to="/" class="heroe__volver" aria-label="Volver a todas as aves" @click.stop.prevent="volve">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
         </NuxtLink>
         <ClientOnly>
@@ -173,10 +195,14 @@ const outrosNomes = computed(() => {
       <template v-if="ligazon(especie.foto.orixe)">
         · <a :href="ligazon(especie.foto.orixe)!">Wikimedia Commons</a>
       </template>
-      <!-- A data de marcada, que na pílula da foto non cabe. -->
-        <ClientOnly>
-          <span v-if="dataVista" class="creditos__vista"> · Marcada o {{ dataVista }}</span>
-        </ClientOnly>
+      <!-- A data de marcada, que na pílula da foto non cabe. Vai en liña propia:
+           é un dato do usuario, non parte da atribución da foto, e pegado cun
+           punto medio parecía outro campo do crédito. -->
+        <span class="baixo-foto__nota">
+          <ClientOnly>
+            <span v-if="dataVista" class="creditos__vista">Marcada o {{ dataVista }}</span>
+          </ClientOnly>
+        </span>
       </p>
 
       <ClientOnly>
@@ -199,7 +225,7 @@ const outrosNomes = computed(() => {
         </div>
       </section>
 
-      <section class="bloque" :style="{ order: posicion('fotos') }">
+      <section v-if="especie.galeria" class="bloque" :style="{ order: posicion('fotos') }">
         <h2>Máis fotos</h2>
 
         <!-- Vai enriba do botón e non dentro da galería: agrupar por plumaxe é do
@@ -371,7 +397,7 @@ const outrosNomes = computed(() => {
       <section class="bloque" :style="{ order: posicion('galicia') }">
         <h2>En Galicia</h2>
         <p>
-          {{ especie.citas.toLocaleString('gl-ES') }} citas rexistradas en GBIF.
+          {{ numero(especie.citas) }} citas rexistradas en GBIF.
           <template v-if="especie.rara">
             Con tan poucos rexistros, trátase probablemente dunha ave divagante,
             dunha escapada de catividade ou dun erro de identificación.
@@ -569,7 +595,6 @@ const outrosNomes = computed(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: var(--oco);
 }
 
 /* Atribución da foto: discreta, pero presente. Non é adorno. */
@@ -582,7 +607,24 @@ const outrosNomes = computed(() => {
   color: var(--tinta-suave);
 }
 
+/* O oco desta liña resérvase sempre, marcada a ave ou non: se aparecese ao
+   premer «marcar como vista», as tarxetas de abaixo darían un salto no medio
+   do xesto, e o que se moveu non foi o que se tocou. */
+.baixo-foto__nota {
+  display: block;
+  /* O aire vai aquí como recheo e non como marxe do fillo: unha marxe de
+     arriba nun fillo sen borde nin recheo escápase do pai (colapso de marxes) e
+     empurraba a atribución 2 px cara abaixo ao marcar a ave, que é xusto o
+     salto que se quería evitar. */
+  padding-top: 0.15rem;
+  /* 0.15rem de recheo + unha liña de 0.75rem × 1.5. Se se queda curto o oco
+     medra ao marcar, que é o que pasaba con 1.15rem: `box-sizing: border-box`
+     mete o recheo dentro da conta e quedaban 2 px de menos. */
+  min-height: 1.275rem;
+}
+
 .creditos__vista {
+  display: block;
   color: var(--fento);
   font-weight: 600;
 }
@@ -641,8 +683,18 @@ const outrosNomes = computed(() => {
    ~165 px seguen collendo o nome e o lugar; por debaixo diso apílanse. */
 .sons {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.6rem;
+  /* `minmax(0, 1fr)` e non `1fr`: `1fr` é `minmax(auto, 1fr)`, e ese `auto` é
+     min-content. Un topónimo longo —«União das freguesias de Podence e Santa
+     Combinha»— ensanchaba a súa columna e rompía a rexilla. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Dúas filas declaradas aquí, non dentro de cada gravación: o botón e o
+     crédito de ambas comparten fila (ver `subgrid` en ReproducirCanto). Sen
+     isto, un autor de nome longo ocupaba dúas liñas e roubáballe alto ao seu
+     botón, así que un botón quedaba máis baixo ca o do lado. */
+  grid-template-rows: auto auto;
+  /* Sen oco entre filas: a separación entre o botón e o seu crédito xa a pon o
+     propio crédito, e así non se abre un espazo de 0.6rem no medio. */
+  gap: 0 0.6rem;
 }
 
 @media (max-width: 22rem) {

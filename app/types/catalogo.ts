@@ -177,6 +177,12 @@ export interface Especie {
    * avisar sen agardar a que ninguén prema o botón.
    */
   plumaxes: Plumaxe[]
+  /**
+   * Se esta especie ten ficheiro de galería. ~20 non o teñen: son as que
+   * Commons arquiva baixo outro nome ou das que non hai fotos utilizables.
+   * Sen este dato a ficha ofrecía «Ver máis fotos» e daba un erro de rede.
+   */
+  galeria: boolean
   fenoloxia: Fenoloxia | null
   /** Nº de ocorrencias rexistradas en GBIF para Galicia. Serve de proxy de abundancia. */
   citas: number

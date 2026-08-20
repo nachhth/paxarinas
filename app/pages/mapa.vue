@@ -140,7 +140,7 @@ useHead({ title: 'Mapa por comarcas — Paxariñas' })
               <span class="ave__sci">{{ especie.cientifico }}</span>
             </span>
 
-            <span class="ave__citas">{{ citas.toLocaleString('gl') }} citas</span>
+            <span class="ave__citas">{{ numero(citas) }} citas</span>
           </NuxtLink>
         </li>
       </ul>
