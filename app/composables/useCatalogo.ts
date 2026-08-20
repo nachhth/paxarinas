@@ -101,7 +101,15 @@ export function ligazon(url: string | null | undefined): string | null {
  * importa nun sitio que se xera unha vez e se serve estático.
  */
 export function numero(n: number): string {
-  return String(Math.trunc(Math.abs(n)))
-    .replace(/\B(?=(\d{3})+(?!\d))/g, '.')
-    .replace(/^/, n < 0 ? '-' : '')
+  // Todo o que non sexa un número acaba en '0' e non nun «NaN» na ficha. Aquí
+  // sempre chegan contas de citas de GBIF, pero un dato que falte non ten por
+  // que verse coma un erro do programa.
+  if (!Number.isFinite(n)) return '0'
+
+  const enteiro = Math.trunc(Math.abs(n))
+  // O punto vai entre cada tres díxitos contando desde a dereita: `\B` evita
+  // pórllo diante do primeiro, e o `(?!\d)` que os grupos se conten desde o
+  // final e non desde o principio.
+  const conPuntos = String(enteiro).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  return n < 0 ? `-${conPuntos}` : conPuntos
 }
