@@ -23,7 +23,11 @@ function csp() {
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2026-08-12',
-  devtools: { enabled: true },
+  /* Apagadas a propósito. Ademais de estorbar, xa enganaron unha vez: a súa
+     barra flotante falsea o ancho do documento, e unha medición de desbordamento
+     horizontal deu un resultado que non era o da páxina real. Desde entón o
+     armazón mídese sempre contra o sitio xerado. */
+  devtools: { enabled: false },
 
   modules: ['@vite-pwa/nuxt'],
 

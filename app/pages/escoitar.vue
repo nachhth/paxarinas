@@ -2,11 +2,26 @@
 import { nomeMostrado } from '~/composables/useCatalogo'
 import { useBirdnet, BYTES_MODELO } from '~/composables/useBirdnet'
 
-useHead({ title: 'Escoitar — Paxariñas' })
+/**
+ * Esta pantalla vai sempre en escuro, sexa o que sexa o tema do sistema.
+ *
+ * Non se duplica nin unha cor: `data-tema="escuro"` activa o bloque de tokens
+ * que xa existe en base.css, así que a cabeceira, as tarxetas, os avisos e a
+ * barra de abaixo cambian todos sos. `useHead` quítao ao saír da ruta.
+ *
+ * Por que escuro e non seguindo o tema: úsase de noite e ao amencer, cando
+ * cantan os paxaros, e cunha pantalla branca na man non se ve nin o paxaro nin
+ * a pantalla. É a única ruta da app que decide o tema pola persoa, e faino por
+ * onde se usa.
+ */
+useHead({
+  title: 'Escoitar — Paxariñas',
+  htmlAttrs: { 'data-tema': 'escuro' },
+})
 
 const {
   estado, erro, progreso, bytesBaixados, backend, gpu,
-  deteccions, segundosGravados, msAnalise, espazoLibre, daCache, senGardar,
+  deteccions, segundosGravados, msAnalise, espazoLibre, daCache, senGardar, niveis,
   comprobar, cargar, gravar, parar, candidatas, totalGalegas, mesActual,
 } = useBirdnet()
 
@@ -32,6 +47,19 @@ watchEffect(() => {
 })
 
 const atopadas = computed(() => deteccions.value.filter(d => d.confianza >= LIMIAR))
+
+/**
+ * A confianza en palabras. A cifra segue aí ao lado: a palabra é para decidir
+ * nun segundo co paxaro diante, e o número para quen queira saber canto.
+ *
+ * Non se di nunca «é», nin sequera co 99%: o modelo dá probabilidades e a app
+ * enteira está construída sobre non afirmar o que non sabe.
+ */
+function enPalabras(c: number) {
+  if (c >= 0.7) return 'moi probable'
+  if (c >= 0.35) return 'probable'
+  return 'posible'
+}
 const podeGravar = computed(() => estado.value === 'listo')
 const analizado = ref(false)
 
@@ -58,19 +86,19 @@ async function aoGravar() {
 <template>
   <div>
     <NuxtLink to="/" class="volver">Todas as aves</NuxtLink>
-    <h1>Escoitar</h1>
 
-    <section class="bloque">
-      <p>
-        Grava uns segundos e a app dirache que aves cre que están a cantar.
-        Todo se calcula <strong>no teu dispositivo</strong>: o son non sae de
-        aquí e non fai falta cobertura.
+    <!-- Sen tarxeta: é a entrada da pantalla, non un dato máis. -->
+    <header class="entrada">
+      <h1 class="entrada__titulo">Escoitando o monte</h1>
+      <p class="entrada__pe">
+        O son <strong>non sae do teléfono</strong>: o modelo corre aquí dentro,
+        sen cobertura e sen enviar nada.
       </p>
-      <p class="nota">
+      <p class="entrada__aviso">
         Isto é unha axuda, non unha determinación. Confirma sempre co que vexas
         e coa ficha da especie.
       </p>
-    </section>
+    </header>
 
     <!-- ─── Sen GPU non hai nada que facer: dise, non se deixa a pantalla morta ─ -->
     <section v-if="estado === 'sen-gpu'" class="bloque">
@@ -187,15 +215,27 @@ async function aoGravar() {
         <h2>Gravar</h2>
 
         <div class="controis">
-          <label class="campo">
-            <span>Duración</span>
-            <select v-model.number="segundos" :disabled="!podeGravar">
-              <option :value="3">3 segundos</option>
-              <option :value="9">9 segundos</option>
-              <option :value="15">15 segundos</option>
-              <option :value="30">30 segundos</option>
-            </select>
-          </label>
+          <!-- Tres botóns e non un despregable. Un `select` nativo canta
+               dentro dunha tarxeta —é o único control da app que se pinta co
+               estilo do sistema— e para tres valores obriga a dous toques
+               (abrir e escoller) cando se pode facer nun.
+               Fóra os 15 s: estaban entre 9 e 30 sen engadir nada. -->
+          <!-- `role=group` + `aria-label` en vez de `fieldset`/`legend`: dá a
+               mesma semántica e déixase aliñar en fila. Un `legend` dentro dun
+               `fieldset` en flex colócao cada navegador á súa maneira. -->
+          <div class="duracion" role="group" aria-label="Duración">
+            <span class="duracion__rotulo">Duración</span>
+            <div class="duracion__opcions">
+              <button
+                v-for="s in [3, 9, 30]" :key="s"
+                class="duracion__boton" :class="{ 'duracion__boton--posto': segundos === s }"
+                :aria-pressed="segundos === s" :disabled="!podeGravar"
+                @click="segundos = s"
+              >
+                {{ s }} s
+              </button>
+            </div>
+          </div>
 
           <label class="opcion">
             <input v-model="soDoMes" type="checkbox" :disabled="!podeGravar">
@@ -208,28 +248,72 @@ async function aoGravar() {
           </label>
         </div>
 
-        <!-- O número que xustifica todo isto: 6.522 → uns centos. -->
-        <p class="nota">
+        <!-- ─── A onda ───────────────────────────────────────────────────────
+             Barras co nivel REAL do micrófono, non unha animación decorativa.
+             Se non entra son, quedan planas — e iso é precisamente o que hai
+             que poder ver.
+
+             Está SEMPRE no seu sitio, apagada mentres non se grava. Aparecendo
+             só ao premer, empurraba o botón e todo o de abaixo no mesmo instante
+             en que se pousa o dedo: o peor momento posible para mover nada. -->
+        <div
+          class="onda" :class="{ 'onda--acesa': estado === 'gravando' }"
+          role="img"
+          :aria-label="estado === 'gravando' ? 'Nivel do micrófono' : 'Micrófono apagado'"
+        >
+          <span
+            v-for="(n, i) in niveis" :key="i" class="onda__barra"
+            :style="{ height: `${Math.max(6, n * 100)}%` }"
+          />
+        </div>
+
+        <!-- ─── O botón de gravar ────────────────────────────────────────────
+             Redondo e grande, coa onda animada arredor mentres colle son.
+             Prémese cun paxaro cantando enriba e a miúdo sen mirar, así que non
+             pode ser un botón de formulario máis. -->
+        <div class="gravar">
+          <button
+            v-if="estado === 'gravando'"
+            class="gravar__boton gravar__boton--activo"
+            @click="parar"
+          >
+            <!-- Cadrado de parar. Antes había aquí unhas barras animadas, pero
+                 repetían a onda que xa está enriba —e esa si mide o micrófono—,
+                 así que dentro do botón non dicían nada novo. Un cadrado di
+                 «para», que é o que fai. -->
+            <span class="gravar__stop" aria-hidden="true" />
+            <span class="só-lectores">Parar de gravar</span>
+          </button>
+
+          <button
+            v-else class="gravar__boton"
+            :disabled="!podeGravar" @click="aoGravar"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2" />
+            </svg>
+            <span class="só-lectores">Gravar e identificar</span>
+          </button>
+
+          <p class="gravar__pe" aria-live="polite">
+            <template v-if="estado === 'gravando'">
+              Gravando · {{ segundosGravados.toFixed(0) }} s — toca para deter
+            </template>
+            <template v-else-if="estado === 'analizando'">Analizando…</template>
+            <template v-else>Toca e deixa que cante</template>
+          </p>
+        </div>
+
+        <p v-if="erro" class="aviso">{{ erro }}</p>
+
+        <!-- Debaixo do botón: explica por que isto funciona, pero non fai falta
+             lelo para gravar. O número é o que xustifica todo: 6.522 → uns
+             centos. -->
+        <p class="nota nota--pe">
           BirdNET coñece <strong>6.522</strong> especies de todo o mundo. Cos
           filtros postos compáranse só <strong>{{ nCandidatas }}</strong>, as que
           teñen citas en Galicia. Iso é o que dá as boas respostas.
         </p>
-
-        <button
-          v-if="estado === 'gravando'"
-          class="boton boton--suave" @click="parar"
-        >
-          Parar ({{ segundosGravados.toFixed(0) }} s)
-        </button>
-        <button
-          v-else class="boton"
-          :disabled="!podeGravar" @click="aoGravar"
-        >
-          <template v-if="estado === 'analizando'">Analizando…</template>
-          <template v-else>Gravar e identificar</template>
-        </button>
-
-        <p v-if="erro" class="aviso">{{ erro }}</p>
       </section>
 
       <!-- ─── Resultados ────────────────────────────────────────────────────── -->
@@ -260,7 +344,11 @@ async function aoGravar() {
               </span>
 
               <span class="deteccion__conf" :title="`Segundo ${d.segundo}`">
-                {{ Math.round(d.confianza * 100) }}%
+                <span
+                  class="deteccion__palabra"
+                  :class="{ 'deteccion__palabra--forte': d.confianza >= 0.7 }"
+                >{{ enPalabras(d.confianza) }}</span>
+                <span class="deteccion__pct">{{ Math.round(d.confianza * 100) }}%</span>
               </span>
             </NuxtLink>
           </li>
@@ -298,6 +386,236 @@ async function aoGravar() {
 </template>
 
 <style scoped>
+/* ─── Duración ──────────────────────────────────────────────────────────────
+   Control segmentado: as tres opcións á vista e un só toque para cambiar. */
+/* Rótulo e botóns na mesma liña. Se non cabe —pantalla moi estreita ou letra
+   grande do sistema— o `wrap` déixao caer debaixo en vez de apertalo. */
+.duracion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.duracion__rotulo {
+  font-size: 0.85rem;
+  color: var(--tinta-suave);
+}
+
+.duracion__opcions {
+  display: inline-flex;
+  padding: 3px;
+  gap: 3px;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tinta) 5%, var(--papel));
+}
+
+.duracion__boton {
+  min-width: 3.2rem;
+  min-height: 38px;
+  padding: 0 0.7rem;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--tinta-suave);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background var(--saída), color var(--saída);
+}
+
+.duracion__boton:hover:not(:disabled):not(.duracion__boton--posto) {
+  color: var(--fento);
+}
+
+/* A escollida. `aria-pressed` xa o di ás axudas técnicas; isto é para os ollos. */
+.duracion__boton--posto {
+  background: var(--fento);
+  color: var(--boton-tinta);
+}
+
+.duracion__boton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.duracion__boton:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 1px;
+}
+
+/* ─── Entrada da pantalla ───────────────────────────────────────────────────
+   Sen tarxeta: é o título da pantalla, non un dato. */
+.entrada {
+  margin: 0 0 var(--oco);
+}
+
+.entrada__titulo {
+  margin: 0;
+  font-size: clamp(1.6rem, 1.2rem + 2vw, 2rem);
+  line-height: 1.15;
+}
+
+.entrada__pe {
+  margin: 0.35rem 0 0;
+  max-width: 22rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--tinta-suave);
+}
+
+.entrada__aviso {
+  margin: 0.6rem 0 0;
+  font-size: 0.82rem;
+  color: var(--granito);
+}
+
+/* ─── Onda do micrófono ─────────────────────────────────────────────────────
+   Alto fixo para que non salte a páxina ao aparecer, e as barras crecen desde
+   abaixo. A cor sae dos tokens: en escuro é o verde claro do tema. */
+.onda {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  /* Alto fixo, reservado sempre. É o que evita o salto ao premer. */
+  height: 76px;
+  margin: 1.4rem 0 0.6rem;
+}
+
+.onda__barra {
+  width: 6px;
+  border-radius: 4px;
+  /* Apagada: gris e a penas visible. Plana quere dicir «non entra son», así que
+     tampouco pode desaparecer de todo. */
+  background: var(--granito);
+  opacity: 0.35;
+  transition: height 90ms linear, background var(--saída), opacity var(--saída);
+}
+
+.onda--acesa .onda__barra {
+  background: var(--fento);
+  opacity: 1;
+}
+
+/* ─── Confianza en palabras ─────────────────────────────────────────────────
+   A palabra manda e a cifra vai debaixo, menor: co paxaro diante decídese coa
+   palabra, e o número queda para quen queira comprobar. */
+.deteccion__palabra {
+  display: block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--borde);
+  background: color-mix(in srgb, var(--tinta) 6%, transparent);
+  color: var(--tinta-suave);
+  font-size: 0.72rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.deteccion__palabra--forte {
+  border-color: color-mix(in srgb, var(--fento) 40%, transparent);
+  background: color-mix(in srgb, var(--fento) 16%, transparent);
+  color: var(--fento);
+}
+
+.deteccion__pct {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--granito);
+  text-align: center;
+}
+
+/* ─── Botón de gravar ───────────────────────────────────────────────────────
+   Círculo grande e centrado. Mentres grava, as barras móvense: é o único xeito
+   de saber que o micrófono colle algo sen ter que fiarse. */
+.gravar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.4rem;
+}
+
+/* A nota vai ao final e en pequeno: está para quen queira sabelo, non no
+   camiño de quen quere gravar. */
+.nota--pe {
+  margin-top: 1.1rem;
+  font-size: 0.8rem;
+}
+
+.gravar__boton {
+  width: 88px;
+  height: 88px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 999px;
+  background: var(--fento);
+  color: var(--boton-tinta);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgb(26 31 22 / 20%), 0 12px 28px rgb(26 31 22 / 22%);
+  transition: transform var(--saída), background var(--saída);
+}
+
+.gravar__boton:hover:not(:disabled) {
+  background: var(--fento-claro);
+}
+
+.gravar__boton:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.gravar__boton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gravar__boton:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 3px;
+}
+
+.gravar__boton svg {
+  width: 38px;
+  height: 38px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* Gravando: cambia a cor e o círculo late, para que se vexa de lonxe que segue
+   collendo son. */
+.gravar__boton--activo {
+  background: var(--papo);
+  color: #1a1f16;
+}
+
+/* Cadrado de parar, coas esquinas redondeadas como o resto da app. */
+.gravar__stop {
+  display: block;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: currentColor;
+}
+
+.gravar__pe {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tinta-suave);
+  text-align: center;
+}
+
+
+
 /* `.volver`, `.bloque`, `.boton`, `.aviso` e `.nota` veñen de base.css.
    A barra de progreso non: repítese aquí a mesma que usa /sen-conexion. */
 

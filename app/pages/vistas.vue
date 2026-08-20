@@ -49,7 +49,8 @@ function descarga() {
         <p class="resumo">
           <strong>{{ listaxe.length }}</strong>
           {{ listaxe.length === 1 ? 'especie' : 'especies' }}
-          de {{ familias }} {{ familias === 1 ? 'familia' : 'familias' }}.
+          de {{ familias }} {{ familias === 1 ? 'familia' : 'familias' }}
+          <span class="resumo__onde">· só neste teléfono</span>
         </p>
 
         <ul class="aves">
@@ -112,6 +113,13 @@ function descarga() {
 </template>
 
 <style scoped>
+/* Onde vive a listaxe, dito no propio resumo e non só na nota do final: é o
+   primeiro que quere saber quen marca aves nunha app sen contas. */
+.resumo__onde {
+  color: var(--tinta-suave);
+  font-weight: 400;
+}
+
 .resumo {
   margin: 0 0 1rem;
   color: var(--tinta-suave);

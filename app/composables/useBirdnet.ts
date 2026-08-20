@@ -30,6 +30,9 @@ import type { Especie } from '~/types/catalogo'
  * `etl/birdnet/README.md`.
  */
 
+/** Cantas barras ten a onda. Só afecta ao debuxo. */
+const BARRAS = 17
+
 /** 3 s a 48 kHz: a fiestra que espera BirdNET. */
 export const MOSTRAS_FRAGMENTO = 144000
 export const SAMPLE_RATE = 48000
@@ -97,6 +100,15 @@ export function useBirdnet() {
   const msAnalise = ref(0)
   const espazoLibre = ref<number | null>(null)
   /**
+   * Niveis do micrófono mentres grava, de 0 a 1, para pintar a onda.
+   *
+   * Son medidas de verdade, sacadas dun `AnalyserNode` sobre a mesma pista que
+   * se está a gravar. Unha onda decorativa que se move soa sería peor que non
+   * poñer nada: diría «estou a oírte» sen sabelo, e xa houbo unha tarde perdida
+   * porque non había como distinguir «non recoñece nada» de «non entra son».
+   */
+  const niveis = ref<number[]>(new Array(BARRAS).fill(0))
+  /**
    * O modelo xa está no dispositivo, así que «cargar» non baixa nada.
    *
    * O estado desta páxina vive en `ref`s que morren ao navegar a outra ruta: ao
@@ -158,6 +170,8 @@ export function useBirdnet() {
   const agardando = new Map<number, { resolve: (v: any) => void, reject: (e: Error) => void }>()
 
   let gravadora: MediaRecorder | null = null
+  let audioCtx: AudioContext | null = null
+  let fotograma: number | null = null
   let pista: MediaStream | null = null
   let crono: ReturnType<typeof setInterval> | null = null
   let corte: ReturnType<typeof setTimeout> | null = null
@@ -314,6 +328,7 @@ export function useBirdnet() {
     }
 
     estado.value = 'gravando'
+    escoitaNivel(pista)
     const anacos: Blob[] = []
 
     try {
@@ -345,7 +360,51 @@ export function useBirdnet() {
       return false
     } finally {
       deténCronos()
+      calaNivel()
     }
+  }
+
+  /**
+   * Mide o son que entra e enche `niveis`.
+   *
+   * Vai nun `AudioContext` aparte e non toca a gravación: o `MediaRecorder`
+   * segue coa mesma pista sen enterarse. Se algo falla —un navegador sen
+   * `AudioContext`, un permiso raro— non se rompe a gravación: quédase a onda
+   * plana, que é o único que se perde.
+   */
+  function escoitaNivel(fonte: MediaStream) {
+    try {
+      audioCtx = new AudioContext()
+      const analise = audioCtx.createAnalyser()
+      // 64 bins abondan para 17 barras e custan menos ca 2048.
+      analise.fftSize = 64
+      analise.smoothingTimeConstant = 0.7
+      audioCtx.createMediaStreamSource(fonte).connect(analise)
+      const datos = new Uint8Array(analise.frequencyBinCount)
+
+      const pinta = () => {
+        analise.getByteFrequencyData(datos)
+        const saida: number[] = []
+        const por = Math.max(1, Math.floor(datos.length / BARRAS))
+        for (let b = 0; b < BARRAS; b++) {
+          let suma = 0
+          for (let i = 0; i < por; i++) suma += datos[b * por + i] ?? 0
+          saida.push(Math.min(1, (suma / por) / 200))
+        }
+        niveis.value = saida
+        fotograma = requestAnimationFrame(pinta)
+      }
+      pinta()
+    } catch {
+      niveis.value = new Array(BARRAS).fill(0)
+    }
+  }
+
+  function calaNivel() {
+    if (fotograma !== null) { cancelAnimationFrame(fotograma); fotograma = null }
+    audioCtx?.close().catch(() => { /* xa pechado */ })
+    audioCtx = null
+    niveis.value = new Array(BARRAS).fill(0)
   }
 
   function deténCronos() {
@@ -432,6 +491,7 @@ export function useBirdnet() {
 
   onScopeDispose(() => {
     deixaDeVixiar?.()
+    calaNivel()
     parar()
     deténCronos()
     pista?.getTracks().forEach(t => t.stop())
@@ -448,7 +508,7 @@ export function useBirdnet() {
 
   return {
     estado, erro, progreso, bytesBaixados, backend, gpu,
-    deteccions, segundosGravados, msAnalise, espazoLibre, daCache, senGardar,
+    deteccions, segundosGravados, msAnalise, espazoLibre, daCache, niveis, senGardar,
     comprobar, cargar, gravar, parar, candidatas,
     totalGalegas: computed(() => porIndice.value.size),
     mesActual,

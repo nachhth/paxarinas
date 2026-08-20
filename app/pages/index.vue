@@ -84,9 +84,13 @@ function textoBuscable(e: Especie) {
   ].filter(Boolean).join(' '))
 }
 
+/** Hai algo posto? Serve para o rótulo da listaxe, que non pode mentir. */
+const haiFiltro = computed(() =>
+  !!busca.value.trim() || mesEscollido.value !== '' || !!ordeEscollida.value)
+
 const resultados = computed(() => {
   const termo = normaliza(busca.value.trim())
-  return catalogo.especies.filter((e) => {
+  const filtradas = catalogo.especies.filter((e) => {
     if (e.rara && !incluirRaras.value) return false
     if (ordeEscollida.value && e.orde !== ordeEscollida.value) return false
     // `false`: aquí o filtro está para acurtar 517 fichas, así que as especies
@@ -95,44 +99,38 @@ const resultados = computed(() => {
     if (termo && !textoBuscable(e).includes(termo)) return false
     return true
   })
+
+  // Por número de citas e non por orde alfabética. Quen abre a app viu un
+  // paxaro, e case sempre é un dos comúns: poñer o merlo antes ca unha
+  // divagante con tres citas é a resposta probable, non un capricho. É o mesmo
+  // criterio que xa segue a identificación guiada.
+  //
+  // Ordénase unha copia: `catalogo.especies` é o catálogo compartido de toda a
+  // app e un `sort` in situ reordenaríallelo tamén ao mapa e ás parecidas.
+  return [...filtradas].sort((a, b) => (b.citas ?? 0) - (a.citas ?? 0))
 })
 </script>
 
 <template>
   <div>
-    <p class="intro">
-      <strong>{{ catalogo.total }}</strong> especies de aves con citas
-      rexistradas en Galicia.
-    </p>
-
-    <!-- Buscar polo nome só serve a quen xa o sabe. Quen ve un paxaro e non o
-         coñece precisa a outra porta, e ten que atopala antes que os filtros. -->
-    <NuxtLink to="/identificar" class="chamada">
-      <!-- SVG e non un emoji: 🔎 debúxao cada sistema operativo á súa maneira e
-           chegaba con cores propias que non son as da app. -->
-      <svg class="chamada__icona" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5 21 21" />
-      </svg>
-      <span>
-        <strong>Non sabes que paxaro é?</strong>
-        <span class="chamada__pe">Chega a el polo tamaño, o sitio e a época.</span>
-      </span>
-    </NuxtLink>
-
-    <p class="chamada__son">
-      Ou, se o oes cantar, <NuxtLink to="/escoitar">identifícao polo son</NuxtLink>.
-    </p>
-
     <div class="filtros">
       <input
         v-model="busca"
         type="search"
         class="busca"
-        placeholder="Buscar en galego, castelán, inglés ou latín…"
+        placeholder="Buscar unha ave…"
         aria-label="Buscar especie por nome en calquera idioma, familia ou orde"
       >
+    </div>
 
-      <select v-model="mesEscollido" class="selector" aria-label="Filtrar por mes">
+    <!-- Os tres filtros secundarios, pregados. Seguen todos aí: o que cambia é
+         que non ocupan media pantalla antes de ver a primeira ave. Ábrense sos
+         se se chega cun filtro posto na URL, que se non parecería que se
+         perdeu. -->
+    <details class="mais-filtros" :open="mesEscollido !== '' || !!ordeEscollida || incluirRaras">
+      <summary>Máis filtros</summary>
+      <div class="filtros">
+        <select v-model="mesEscollido" class="selector" aria-label="Filtrar por mes">
         <option value="">Todo o ano</option>
         <option v-for="(nome, i) in MESES" :key="nome" :value="String(i)">
           Vense en {{ nome }}
@@ -146,13 +144,18 @@ const resultados = computed(() => {
         </option>
       </select>
 
-      <label class="check">
-        <input v-model="incluirRaras" type="checkbox">
-        Incluír raras e divagantes
-      </label>
-    </div>
+        <label class="check">
+          <input v-model="incluirRaras" type="checkbox">
+          Incluír raras e divagantes
+        </label>
+      </div>
+    </details>
 
-    <p class="conta">{{ resultados.length }} especies</p>
+    <!-- Rótulo da listaxe: di que orde leva, que sen dicilo parece arbitraria. -->
+    <p class="conta">
+      <span class="conta__que">{{ haiFiltro ? 'Resultados' : 'As máis citadas' }}</span>
+      <span class="conta__n">{{ resultados.length }}</span>
+    </p>
 
     <ul class="listaxe">
       <li v-for="e in resultados" :key="e.slug">
@@ -192,45 +195,24 @@ const resultados = computed(() => {
 </template>
 
 <style scoped>
-.intro {
-  margin-top: 0;
-  color: var(--tinta-suave);
+
+/* Os filtros secundarios, pregados. */
+.mais-filtros {
+  margin-bottom: 0.9rem;
 }
 
-.chamada {
-  display: flex;
+.mais-filtros summary {
+  display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 0.9rem;
-  margin-bottom: 1rem;
-  background: var(--papel);
-  border: 1px solid var(--fento-claro);
-  border-left: 4px solid var(--fento);
-  border-radius: var(--raio);
-  text-decoration: none;
-  color: inherit;
+  min-height: 2.5rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--fento);
+  cursor: pointer;
 }
 
-.chamada__icona {
-  width: 1.6rem;
-  height: 1.6rem;
-  flex: none;
-  fill: none;
-  stroke: var(--fento);
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-
-.chamada__pe {
-  display: block;
-  font-size: 0.85rem;
-  color: var(--tinta-suave);
-}
-
-.chamada__son {
-  margin: -0.6rem 0 1rem;
-  font-size: 0.85rem;
-  color: var(--tinta-suave);
+.mais-filtros[open] summary {
+  margin-bottom: 0.4rem;
 }
 
 .filtros {
@@ -273,10 +255,34 @@ const resultados = computed(() => {
   height: 1.15rem;
 }
 
+/* Rótulo da listaxe. O número vai nunha pílula á dereita: o que interesa é
+   «de que vai esta lista», e a cifra é o dato secundario. */
 .conta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin: 0 0 0.6rem;
   font-size: 0.85rem;
   color: var(--tinta-suave);
-  margin: 0 0 0.6rem;
+}
+
+.conta__que {
+  font-family: var(--fonte-titulo);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--tinta);
+}
+
+.conta__n {
+  flex: none;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: var(--fento-tenue);
+  color: var(--fento);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .listaxe {
@@ -285,7 +291,16 @@ const resultados = computed(() => {
   padding: 0;
   display: grid;
   gap: 0.5rem;
-  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  /* Dúas columnas desde o móbil: a foto é o que identifica un paxaro, e a unha
+     columna só caben dúas tarxetas por pantalla. `minmax(0,1fr)` e non `1fr`
+     porque as fotos teñen ancho intrínseco e desbordarían a columna. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 34rem) {
+  .listaxe {
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  }
 }
 
 .tarxeta {

@@ -446,6 +446,15 @@ input[type='radio'] {
   padding: 1.5rem 1rem 3.5rem;
 }
 
+/* En móbil a barra inferior vai fixa e taparía o final de cada páxina: os 56 px
+   da barra, o botón do son que sobresae e a franxa do xesto do sistema. */
+@media (max-width: 46rem) {
+  .contido,
+  .rodape {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 .rodape {
   border-top: 1px solid var(--borde);
   padding: 1.25rem 1rem;
