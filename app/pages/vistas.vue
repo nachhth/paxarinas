@@ -2,7 +2,7 @@
 import type { Especie } from '~/types/catalogo'
 
 const catalogo = useCatalogo()
-const { vistas, baleira } = useVistas()
+const { vistas, baleira, esqueceLugares } = useVistas()
 
 useHead({ title: 'As miñas aves — Paxariñas' })
 
@@ -18,7 +18,22 @@ const listaxe = computed(() =>
 const familias = computed(() =>
   new Set(listaxe.value.map(x => x.especie.familia).filter(Boolean)).size)
 
-const confirmando = ref(false)
+/**
+ * Que borrado se está a confirmar. Un só estado para os dous, que non se poden
+ * estar a confirmar á vez: `null`, `'sitios'` ou `'todo'`.
+ *
+ * Os sitios tamén se confirman aínda que non borren ningunha marca: perder as
+ * coordenadas é perder onde estiveches, e iso non se pode volver escribir a
+ * man como se volve marcar unha ave.
+ */
+const confirmando = ref<null | 'sitios' | 'todo'>(null)
+
+/**
+ * Cantas marcas teñen sitio. Dise sempre, tamén cando son cero: se non, quen
+ * marcou dez aves sen dar permiso de localización non entendería por que non
+ * hai mapa, e pensaría que a app perdeu algo.
+ */
+const conSitio = computed(() => listaxe.value.filter(x => x.vista.lugar).length)
 
 function descarga() {
   const csv = csvDeVistas(vistas.value, (slug) => {
@@ -53,6 +68,16 @@ function descarga() {
           <span class="resumo__onde">· só neste teléfono</span>
         </p>
 
+        <ClientOnly>
+          <MapaVistas :marcas="listaxe" />
+        </ClientOnly>
+
+        <p v-if="!conSitio" class="sen-sitio">
+          Ningunha das túas marcas ten sitio gardado. Ao marcar unha ave
+          apúntase onde estabas, se lle das permiso de localización ao
+          navegador; queda só neste dispositivo.
+        </p>
+
         <ul class="aves">
           <li v-for="{ vista, especie } in listaxe" :key="vista.slug">
             <NuxtLink :to="`/especie/${especie.slug}`" class="ave">
@@ -75,25 +100,40 @@ function descarga() {
           <button class="boton boton--suave" @click="descarga">
             Descargar en CSV
           </button>
-          <button
-            v-if="!confirmando" class="ligazon"
-            @click="confirmando = true"
-          >
-            Baleirar a listaxe
-          </button>
-          <span v-else class="confirmar">
-            Seguro? Non se pode desfacer.
-            <button class="ligazon" @click="baleira(); confirmando = false">
-              Si, baleirar
+          <template v-if="!confirmando">
+            <button
+              v-if="conSitio" class="ligazon"
+              @click="confirmando = 'sitios'"
+            >
+              Esquecer os sitios
             </button>
-            <button class="ligazon" @click="confirmando = false">Cancelar</button>
+            <button class="ligazon" @click="confirmando = 'todo'">
+              Baleirar a listaxe
+            </button>
+          </template>
+
+          <span v-else class="confirmar">
+            <template v-if="confirmando === 'sitios'">
+              Bórranse as coordenadas e quedan as aves. Non se pode desfacer.
+              <button class="ligazon" @click="esqueceLugares(); confirmando = null">
+                Si, esquecer
+              </button>
+            </template>
+            <template v-else>
+              Seguro? Non se pode desfacer.
+              <button class="ligazon" @click="baleira(); confirmando = null">
+                Si, baleirar
+              </button>
+            </template>
+            <button class="ligazon" @click="confirmando = null">Cancelar</button>
           </span>
         </div>
 
         <p class="nota">
-          A listaxe gárdase só neste dispositivo: non hai contas nin sae de aquí.
-          Por iso tamén se perde se borras os datos do navegador — o CSV é o
-          xeito de conservala.
+          A listaxe —e mais os sitios, se os hai— gárdase só neste dispositivo:
+          non hai contas nin sae de aquí. Por iso tamén se perde se borras os
+          datos do navegador; o CSV, que leva as coordenadas, é o xeito de
+          conservala.
         </p>
       </template>
 

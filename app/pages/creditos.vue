@@ -304,7 +304,7 @@ const porLicenza = computed(() => {
    que o bloque, se non vense pasar as filas por debaixo. */
 .taboa th {
   position: sticky;
-  top: 0;
+  top: var(--cabeceira-alto);
   z-index: 1;
   background: var(--papel);
   font-size: 0.72rem;

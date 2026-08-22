@@ -6,7 +6,7 @@
  */
 const props = defineProps<{ slug: string, compacto?: boolean }>()
 
-const { viches, alterna, dataDe } = useVistas()
+const { viches, alterna, dataDe, poñLugar } = useVistas()
 
 const marcada = computed(() => viches(props.slug))
 const data = computed(() => dataDe(props.slug))
@@ -32,6 +32,26 @@ const dataLexible = computed(() => {
  */
 const bandada = useTemplateRef<{ voa: (x: number, y: number) => void }>('bandada')
 
+/**
+ * Apuntar onde foi, se o dispositivo o sabe.
+ *
+ * Vai despois de gardar a marca e sen agardar por ela: localizar leva segundos
+ * —máis aínda co GPS aceso— e a marca ten que quedar feita no intre en que se
+ * preme o botón. Se a posición chega, engádese á marca; se non chega, ou se
+ * non hai permiso, a marca queda igual de válida sen sitio.
+ *
+ * Non se avisa de nada cando falla a propósito: quen marca unha ave está a
+ * mirar para o paxaro, non para a pantalla, e un erro de localización non lle
+ * resolve nada nese momento. O que si se ve é o resultado: en «As miñas aves»
+ * dise cantas marcas teñen sitio e cantas non.
+ */
+async function apuntaOSitio(slug: string) {
+  const sitio = await onde({ preciso: true })
+  // Pode ter pasado tempo: se entre medias se desmarcou, `poñLugar` non atopa
+  // a marca e non fai nada.
+  if (sitio) poñLugar(slug, sitio)
+}
+
 function pulsa(e: MouseEvent) {
   const celebra = !marcada.value
   const caixa = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -39,6 +59,8 @@ function pulsa(e: MouseEvent) {
   alterna(props.slug)
 
   if (!celebra) return
+  apuntaOSitio(props.slug)
+
   try {
     bandada.value?.voa(caixa.left + caixa.width / 2, caixa.top + caixa.height / 2)
   } catch {

@@ -6,6 +6,32 @@
  */
 const catalogo = useCatalogo()
 const dataDatos = computed(() => dataLonga(catalogo.rexistro?.data))
+
+/**
+ * A cabeceira queda pegada arriba ao desprazar, así que o resto da app precisa
+ * saber canto ocupa: as áncoras teñen que parar por debaixo dela e as barras
+ * `sticky` das páxinas (o resumo de «Identificar», a cabeceira da táboa de
+ * créditos) teñen que apoiarse nela e non quedar tapadas.
+ *
+ * Vai medido e non escrito a man porque o menú envolve en dúas filas segundo o
+ * ancho e o tamaño de letra do sistema: calquera constante estaría mal na
+ * metade das pantallas. Un `ResizeObserver` é o único que se decata tanto de
+ * xirar o móbil coma de que a fonte tarde en cargar e a fila creza.
+ */
+const cabeceira = useTemplateRef<HTMLElement>('cabeceira')
+
+let observador: ResizeObserver | undefined
+
+onMounted(() => {
+  if (!cabeceira.value || typeof ResizeObserver === 'undefined') return
+  observador = new ResizeObserver(([entrada]) => {
+    const alto = entrada?.borderBoxSize?.[0]?.blockSize ?? entrada?.contentRect.height ?? 0
+    document.documentElement.style.setProperty('--cabeceira-alto', `${Math.round(alto)}px`)
+  })
+  observador.observe(cabeceira.value)
+})
+
+onBeforeUnmount(() => observador?.disconnect())
 </script>
 
 <template>
@@ -14,7 +40,7 @@ const dataDatos = computed(() => dataLonga(catalogo.rexistro?.data))
          lector de pantalla e o listado de 400 tarxetas, non. -->
     <a class="só-lectores" href="#contido">Ir ao contido</a>
 
-    <header class="cabeceira">
+    <header ref="cabeceira" class="cabeceira">
       <NuxtLink to="/" class="marca">
         <!-- 34×25 e non 34×24: o `viewBox` do paporrubio é 54×40 e cun 24 de
              alto o paxaro saía apertado de lados. -->

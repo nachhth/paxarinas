@@ -94,6 +94,12 @@
   --oco: 1rem;
   --oco-g: 1.75rem;
 
+  /* Alto real da cabeceira pegañenta. Mídese en `app.vue` cun ResizeObserver
+     porque o menú envolve en dúas filas segundo o ancho e o idioma, así que
+     calquera número escrito aquí sería falso na metade das pantallas. O 0 é só
+     o valor de partida antes do primeiro pintado. */
+  --cabeceira-alto: 0px;
+
   /* Que os controis nativos (caixas de verificación, o reprodutor de audio, as
      listas despregables, as barras de desprazamento) sigan o tema. Sen isto
      quedaban brancos e cegadores enriba do fondo escuro. */
@@ -167,6 +173,19 @@
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+html {
+  /* O oco da barra de desprazamento resérvase SEMPRE, tamén nas páxinas que
+     collen na pantalla. Sen isto o ancho do viewport cambia uns 15 px ao pasar
+     dunha páxina longa a unha curta, o menú da cabeceira recolócase e salta
+     todo de sitio ao navegar. Nas barras superpostas (móbil, macOS) non fai
+     nada, que é o que se quere: alí non rouban ancho. */
+  scrollbar-gutter: stable;
+
+  /* Coa cabeceira pegañenta, saltar a unha áncora deixaría o destino debaixo
+     dela. Isto reserva o seu alto en todo desprazamento do navegador. */
+  scroll-padding-top: calc(var(--cabeceira-alto) + var(--oco-p));
 }
 
 body {
@@ -277,7 +296,8 @@ input[type='radio'] {
   position: fixed;
   top: 0.5rem;
   left: 0.5rem;
-  z-index: 20;
+  /* Por riba da cabeceira pegañenta (30), que arranca no mesmo sitio. */
+  z-index: 40;
   width: auto;
   height: auto;
   margin: 0;
@@ -297,7 +317,14 @@ input[type='radio'] {
   flex-direction: column;
 }
 
+/* Queda arriba ao desprazar: nun catálogo de 400 tarxetas o menú tiña que
+   volver á cabeceira do documento para cambiar de sección. Vai `sticky` e non
+   `fixed` para que siga ocupando sitio no fluxo e o contido non teña que
+   compensala cun recheo superior. */
 .cabeceira {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   background: var(--cabeceira-fondo);
   padding: 0.75rem 1rem;
   display: flex;

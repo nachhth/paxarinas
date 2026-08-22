@@ -371,7 +371,7 @@ function alterna(clave: 'habitat' | 'tamano' | 'grupo', valor: string) {
 
 .resumo {
   position: sticky;
-  top: 0;
+  top: var(--cabeceira-alto);
   z-index: 1;
   display: flex;
   flex-wrap: wrap;

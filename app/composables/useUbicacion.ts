@@ -20,7 +20,11 @@ const MENSAXES: Record<number, string> = {
  *
  * A xeolocalización do navegador non é unha API nosa: pídea o dispositivo e
  * nunca pasa por un servidor do proxecto, así que non rompe a regra de que a
- * app non fala con ninguén. Tampouco se garda nin se envía a ningures.
+ * app non fala con ninguén.
+ *
+ * O que se fai con ela: aquí, nada — úsase e tírase. O único sitio onde queda
+ * escrita é `useVistas`, que apunta onde viches cada ave, e iso vai no
+ * `localStorage` do propio dispositivo e pódese borrar desde «As miñas aves».
  */
 export function useUbicacion() {
   const estado = ref<EstadoUbicacion>('inactiva')
@@ -73,4 +77,39 @@ export function useUbicacion() {
   }
 
   return { estado, posicion, erro, localiza, esquece }
+}
+
+/**
+ * Onde estamos, unha soa vez e nunha promesa.
+ *
+ * `localiza()` está pensado para unha pantalla que amosa o estado mentres
+ * busca. Ao marcar unha ave non hai tal pantalla: quérese a posición se chega,
+ * e se non chega non pasa nada, así que aquí vale mellor un `await` que tres
+ * refs. Nunca rexeita: quen chama non ten que envolver isto nun `try`, porque
+ * ningún fallo de localización pode estragar unha marca.
+ *
+ * `preciso` acende o GPS. Para escoller comarca non fai falta —son decenas de
+ * quilómetros— pero para apuntar onde viches un paxaro si: a localización por
+ * rede pode errar quilómetros, e daría igual gardala.
+ */
+export function onde({ preciso = false } = {}): Promise<Posicion | null> {
+  if (!import.meta.client || !('geolocation' in navigator)) {
+    return Promise.resolve(null)
+  }
+
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => resolve({
+        lon: coords.longitude,
+        lat: coords.latitude,
+        precision: coords.accuracy,
+      }),
+      () => resolve(null),
+      {
+        enableHighAccuracy: preciso,
+        timeout: preciso ? 20000 : 15000,
+        maximumAge: 5 * 60 * 1000,
+      },
+    )
+  })
 }
