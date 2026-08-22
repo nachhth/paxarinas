@@ -5,16 +5,95 @@ const { estado: estadoUbi, posicion, erro: erroUbi, localiza } = useUbicacion()
 
 useHead({ title: 'Que paxaro é? — Paxariñas' })
 
-const criterios = ref(criteriosBaleiros())
+const router = useRouter()
+
+/**
+ * As respostas viven na URL, non nun `ref` e xa está.
+ *
+ * O motivo é entrar nunha ave e volver: a páxina desmóntase ao saír, así que
+ * todo o respondido —ás veces cinco respostas— perdíase e había que empezar de
+ * novo, xusto cando se está a comparar dúas especies parecidas. Na query
+ * volven soas ao desandar, e de paso a busca pódese compartir ou gardar.
+ *
+ * É o mesmo que xa fai a listaxe de aves coa súa busca e os seus filtros.
+ */
+/**
+ * A consulta da URL de entrada vén do plugin `consulta-inicial`, non de
+ * `route.query` nin de `location`: cando esta páxina monta, a URL está un
+ * intre sen a query. A explicación enteira, alí.
+ */
+function textoNaUrl(consulta: string, nome: string): string {
+  return new URLSearchParams(consulta).get(nome) ?? ''
+}
+
 const habitats = habitatsDoCatalogo(catalogo.especies)
+
+function criteriosDaUrl(consulta: string): Criterios {
+  const c = criteriosBaleiros()
+  const mes = textoNaUrl(consulta, 'mes')
+  c.mes = /^(?:[0-9]|1[01])$/.test(mes) ? Number(mes) : null
+
+  // Só se aceptan valores que existan: unha URL vella ou tecleada a man non
+  // pode deixar a páxina cun filtro posto que non se ve en ningún botón.
+  const habitat = textoNaUrl(consulta, 'habitat')
+  c.habitat = habitats.some(([h]) => h === habitat) ? habitat : null
+
+  const tamano = textoNaUrl(consulta, 'tamano')
+  c.tamano = TAMANOS.some(t => t.valor === tamano) ? tamano as Criterios['tamano'] : null
+
+  const grupo = textoNaUrl(consulta, 'grupo')
+  c.grupo = GRUPOS.some(g => g.clave === grupo) ? grupo : null
+
+  c.zona = textoNaUrl(consulta, 'zona') || null
+  c.incluirRaras = textoNaUrl(consulta, 'raras') === '1'
+  return c
+}
+
+/**
+ * Vacío ata montar, e non `criteriosDaUrl()` aquí mesmo, aínda que sexa o que
+ * parece natural.
+ *
+ * A páxina xérase de antemán, e mentres o navegador a hidrata `useRoute()`
+ * devolve a ruta tal e como se prerenderizou: sen query. Lendo os criterios
+ * neste punto saían sempre baleiros, o vixiante escribía a URL limpa e unha
+ * ligazón con filtros —compartida ou recargada— perdíaos antes de verse.
+ * Léense ao montar, que é cando o encamiñador xa sabe con que URL se entrou.
+ */
+const criterios = ref(criteriosBaleiros())
+
+function aplicaNaUrl() {
+  const c = criterios.value
+  const query: Record<string, string> = {}
+  // O mes vai sempre, mesmo sen escoller («todo»). Se se omitise, «calquera
+  // época» daría unha URL igual á de non ter respondido nada, e ao volver
+  // dunha ficha o mes de hoxe volvería poñerse só por riba desa decisión.
+  query.mes = c.mes === null ? 'todo' : String(c.mes)
+  if (c.habitat) query.habitat = c.habitat
+  if (c.tamano) query.tamano = c.tamano
+  if (c.grupo) query.grupo = c.grupo
+  if (c.zona) query.zona = c.zona
+  if (c.incluirRaras) query.raras = '1'
+
+  // `replace` e non `push`: responder oito preguntas non pode deixar oito
+  // pasos atrás antes de saír da páxina. Só cambia a query, así que o
+  // scrollBehavior de Nuxt non move a páxina.
+  router.replace({ query })
+}
+
+watch(criterios, aplicaNaUrl, { deep: true })
 
 /**
  * O mes vai posto de entrada, pero visible e desactivable. É o filtro que máis
  * recorta e o que ninguén pensaría en poñer, así que darllo feito é medio
  * traballo; deixalo oculto sería decidir por el sen que o saiba.
+ *
+ * Só na primeira visita: se a URL xa trae mes —incluído «todo»— é que xa se
+ * respondeu, e poñelo outra vez sería desfacer a resposta ao volver dunha ave.
  */
 onMounted(() => {
-  criterios.value.mes = new Date().getMonth()
+  const consulta = useNuxtApp().$consultaInicial()
+  criterios.value = criteriosDaUrl(consulta)
+  if (!textoNaUrl(consulta, 'mes')) criterios.value.mes = new Date().getMonth()
 })
 
 watch(posicion, (p) => {

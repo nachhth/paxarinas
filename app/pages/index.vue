@@ -2,7 +2,6 @@
 import type { Especie } from '~/types/catalogo'
 
 const catalogo = useCatalogo()
-const route = useRoute()
 const router = useRouter()
 
 const MESES = ['xaneiro', 'febreiro', 'marzo', 'abril', 'maio', 'xuño',
@@ -21,22 +20,45 @@ const MESES = ['xaneiro', 'febreiro', 'marzo', 'abril', 'maio', 'xuño',
  *
  * De propina, unha busca queda enlazable e compartible.
  */
-function parametro(nome: string): string {
-  const v = route.query[nome]
-  return (Array.isArray(v) ? v[0] : v) ?? ''
+/**
+ * A consulta da URL de entrada vén do plugin `consulta-inicial`, non de
+ * `route.query` nin de `location`: cando esta páxina monta, a URL está un
+ * intre sen a query. A explicación enteira, alí.
+ */
+function parametro(consulta: string, nome: string): string {
+  return new URLSearchParams(consulta).get(nome) ?? ''
 }
 
 /** Só se acepta un índice de mes real; calquera outra cousa é «todo o ano». */
-function mesDaQuery(): string {
-  const v = parametro('mes')
+function mesDaQuery(consulta: string): string {
+  const v = parametro(consulta, 'mes')
   return /^(?:[0-9]|1[01])$/.test(v) ? v : ''
 }
 
-const busca = ref(parametro('busca'))
-const ordeEscollida = ref(parametro('orde'))
-const incluirRaras = ref(parametro('raras') === '1')
+/**
+ * Baleiros ata montar. A páxina está prerenderizada, e mentres o navegador a
+ * hidrata `useRoute()` aínda devolve a ruta sen query: lendo aquí, unha URL
+ * con busca ou filtros —a que un garda nos marcadores— abría a listaxe enteira
+ * e sen nada posto, e o vixiante remataba de limpar a URL.
+ */
+const busca = ref('')
+const ordeEscollida = ref('')
+const incluirRaras = ref(false)
 /** '' = todo o ano; se non, índice 0-11 do mes escollido. */
-const mesEscollido = ref<string>(mesDaQuery())
+const mesEscollido = ref<string>('')
+
+onMounted(() => {
+  const consulta = useNuxtApp().$consultaInicial()
+  busca.value = parametro(consulta, 'busca')
+  ordeEscollida.value = parametro(consulta, 'orde')
+  incluirRaras.value = parametro(consulta, 'raras') === '1'
+  mesEscollido.value = mesDaQuery(consulta)
+
+  // A hidratación deixa a URL limpa (ver o plugin), así que hai que devolverlle
+  // o que se acaba de ler: se non, o enderezo non contaría o que se está a ver
+  // e recargar a páxina perdería os filtros que trouxo a ligazón.
+  aplicaNaUrl()
+})
 
 /** A query queda co mínimo: un filtro sen poñer non aparece na URL. */
 function aplicaNaUrl() {

@@ -238,11 +238,29 @@ def licenza_cc_ok(meta: dict) -> bool:
             or "CC0" in curta)
 
 
+# Un ano anterior a 1950 no título ou na data da obra. Antes desa raia case
+# todo o que hai en Commons dun paxaro é unha lámina de historia natural, non
+# unha fotografía: así se coou «Phylloscopus plumbeitarsus 1889.jpg», un
+# gravado da Ornithographia rossica, como foto do picafollas patigrís. As
+# palabras «plate» ou «illustration» non sempre están no título nin nas
+# categorías; o ano si.
+ANO_VELLO = re.compile(r"\b(1[5-8]\d{2}|19[0-4]\d)\b")
+
+
+def obra_antiga(titulo: str, meta: dict) -> bool:
+    if ANO_VELLO.search(titulo):
+        return True
+    data = sen_html(meta.get("DateTimeOriginal", {}).get("value") or "")
+    return bool(ANO_VELLO.search(data))
+
+
 def foto_admisible(titulo: str, categorias: str, meta: dict) -> bool:
     """Se isto é unha foto do paxaro e se se pode usar."""
     if TITULO_FÓRA.search(titulo):
         return False
     if categorias and CATEGORIA_FÓRA.search(categorias):
+        return False
+    if obra_antiga(titulo, meta):
         return False
     return licenza_cc_ok(meta)
 
