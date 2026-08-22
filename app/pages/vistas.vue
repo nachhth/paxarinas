@@ -2,7 +2,7 @@
 import type { Especie } from '~/types/catalogo'
 
 const catalogo = useCatalogo()
-const { vistas, baleira, esqueceLugares } = useVistas()
+const { vistas, baleira, esqueceSitios } = useVistas()
 
 useHead({ title: 'As miñas aves — Paxariñas' })
 
@@ -33,7 +33,7 @@ const confirmando = ref<null | 'sitios' | 'todo'>(null)
  * marcou dez aves sen dar permiso de localización non entendería por que non
  * hai mapa, e pensaría que a app perdeu algo.
  */
-const conSitio = computed(() => listaxe.value.filter(x => x.vista.lugar).length)
+const conSitio = computed(() => listaxe.value.filter(x => x.vista.sitio).length)
 
 function descarga() {
   const csv = csvDeVistas(vistas.value, (slug) => {
@@ -115,7 +115,7 @@ function descarga() {
           <span v-else class="confirmar">
             <template v-if="confirmando === 'sitios'">
               Bórranse as coordenadas e quedan as aves. Non se pode desfacer.
-              <button class="ligazon" @click="esqueceLugares(); confirmando = null">
+              <button class="ligazon" @click="esqueceSitios(); confirmando = null">
                 Si, esquecer
               </button>
             </template>

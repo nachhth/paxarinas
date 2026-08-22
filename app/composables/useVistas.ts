@@ -18,7 +18,7 @@
 
 const CHAVE = 'paxarinas:vistas'
 
-export interface Lugar {
+export interface Sitio {
   lon: number
   lat: number
   /** Radio de incerteza en metros, tal e como o deu o dispositivo. */
@@ -36,7 +36,7 @@ export interface Vista {
    * marcando desde a casa unha ave que viches onte, non hai sitio que gardar.
    * Todo o que le isto ten que aguantar que falte.
    */
-  lugar?: Lugar
+  sitio?: Sitio
 }
 
 /** Cinco decimais son pouco máis dun metro. Máis é gardar ruído do GPS. */
@@ -50,7 +50,7 @@ function redondea(n: number) {
  * Compróbase o rango e non só o tipo: un `lat: 200` non existe, e pintaríao o
  * mapa nalgún sitio absurdo en vez de ignoralo.
  */
-function lugarVálido(l: unknown): l is Lugar {
+function sitioVálido(l: unknown): l is Sitio {
   if (!l || typeof l !== 'object') return false
   const { lon, lat, precision } = l as Record<string, unknown>
   return typeof lon === 'number' && Number.isFinite(lon) && Math.abs(lon) <= 180
@@ -86,9 +86,9 @@ function carga() {
       // calquera desde a consola, e o formato pode cambiar algún día.
       vistas.value = datos
         .filter(v => v && typeof v.slug === 'string' && typeof v.data === 'string')
-        // O sitio é opcional, así que unha entrada cun `lugar` estragado non se
+        // O sitio é opcional, así que unha entrada cun `sitio` estragado non se
         // tira: quítaselle o sitio e queda a marca, que é o que importa.
-        .map((v: Vista) => (v.lugar && !lugarVálido(v.lugar)
+        .map((v: Vista) => (v.sitio && !sitioVálido(v.sitio)
           ? { slug: v.slug, data: v.data }
           : v))
     }
@@ -108,9 +108,9 @@ export function useVistas() {
     return vistas.value.some(v => v.slug === slug)
   }
 
-  function marca(slug: string, lugar?: Lugar | null) {
+  function marca(slug: string, sitio?: Sitio | null) {
     if (viches(slug)) return
-    vistas.value = [...vistas.value, { slug, data: hoxe(), ...(lugar ? { lugar } : {}) }]
+    vistas.value = [...vistas.value, { slug, data: hoxe(), ...(sitio ? { sitio } : {}) }]
     garda()
   }
 
@@ -122,30 +122,30 @@ export function useVistas() {
    * engádese; se non chega, ou se entre medias se desmarcou a ave, non pasa
    * nada.
    */
-  function poñLugar(slug: string, lugar: Lugar) {
-    if (!lugarVálido(lugar)) return
-    const limpo: Lugar = {
-      lon: redondea(lugar.lon),
-      lat: redondea(lugar.lat),
-      precision: Math.round(lugar.precision),
+  function poñSitio(slug: string, sitio: Sitio) {
+    if (!sitioVálido(sitio)) return
+    const limpo: Sitio = {
+      lon: redondea(sitio.lon),
+      lat: redondea(sitio.lat),
+      precision: Math.round(sitio.precision),
     }
     let cambiou = false
     vistas.value = vistas.value.map((v) => {
-      if (v.slug !== slug || v.lugar) return v
+      if (v.slug !== slug || v.sitio) return v
       cambiou = true
-      return { ...v, lugar: limpo }
+      return { ...v, sitio: limpo }
     })
     if (cambiou) garda()
   }
 
   /** Borra os sitios pero deixa as marcas. */
-  function esqueceLugares() {
+  function esqueceSitios() {
     vistas.value = vistas.value.map(({ slug, data }) => ({ slug, data }))
     garda()
   }
 
-  function lugarDe(slug: string) {
-    return vistas.value.find(v => v.slug === slug)?.lugar ?? null
+  function sitioDe(slug: string) {
+    return vistas.value.find(v => v.slug === slug)?.sitio ?? null
   }
 
   function desmarca(slug: string) {
@@ -168,7 +168,7 @@ export function useVistas() {
 
   return {
     vistas, viches, marca, desmarca, alterna, baleira, dataDe,
-    poñLugar, esqueceLugares, lugarDe,
+    poñSitio, esqueceSitios, sitioDe,
   }
 }
 
@@ -188,9 +188,9 @@ export function csvDeVistas(
     if (!n) continue
     liñas.push([
       v.data, escapa(n.gl), escapa(n.cientifico),
-      v.lugar ? v.lugar.lat : '',
-      v.lugar ? v.lugar.lon : '',
-      v.lugar ? Math.round(v.lugar.precision) : '',
+      v.sitio ? v.sitio.lat : '',
+      v.sitio ? v.sitio.lon : '',
+      v.sitio ? Math.round(v.sitio.precision) : '',
     ].join(','))
   }
 

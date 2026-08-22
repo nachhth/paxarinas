@@ -6,7 +6,7 @@
  */
 const props = defineProps<{ slug: string, compacto?: boolean }>()
 
-const { viches, alterna, dataDe, poñLugar } = useVistas()
+const { viches, alterna, dataDe, poñSitio } = useVistas()
 
 const marcada = computed(() => viches(props.slug))
 const data = computed(() => dataDe(props.slug))
@@ -47,9 +47,9 @@ const bandada = useTemplateRef<{ voa: (x: number, y: number) => void }>('bandada
  */
 async function apuntaOSitio(slug: string) {
   const sitio = await onde({ preciso: true })
-  // Pode ter pasado tempo: se entre medias se desmarcou, `poñLugar` non atopa
+  // Pode ter pasado tempo: se entre medias se desmarcou, `poñSitio` non atopa
   // a marca e non fai nada.
-  if (sitio) poñLugar(slug, sitio)
+  if (sitio) poñSitio(slug, sitio)
 }
 
 function pulsa(e: MouseEvent) {
