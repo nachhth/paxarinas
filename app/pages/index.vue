@@ -53,11 +53,6 @@ onMounted(() => {
   ordeEscollida.value = parametro(consulta, 'orde')
   incluirRaras.value = parametro(consulta, 'raras') === '1'
   mesEscollido.value = mesDaQuery(consulta)
-
-  // A hidratación deixa a URL limpa (ver o plugin), así que hai que devolverlle
-  // o que se acaba de ler: se non, o enderezo non contaría o que se está a ver
-  // e recargar a páxina perdería os filtros que trouxo a ligazón.
-  aplicaNaUrl()
 })
 
 /** A query queda co mínimo: un filtro sen poñer non aparece na URL. */

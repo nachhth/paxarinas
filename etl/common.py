@@ -215,10 +215,15 @@ CATEGORIA_FÓRA = re.compile(
     r"(ornithologist|birdwatch\w*|birder|people with|humans?\b|"
     r"bird ringing|bird banding|ringing of|banding of|"
     r"taxidermy|specimens?\b|skeletons?|skulls?|"
+    # Ovos e niños: iso dinno as categorías aínda que o título cale. É o que
+    # deixaba pasar «Aquila adalberti MHNT.ZOO.2010.11.93.5.jpg» como foto da
+    # aguia imperial, que é un ovo e non o di en ningures do nome.
+    r"eggs?\b|nests?\b|"
     r"illustrations?|drawings?|paintings?|engravings?|stamps?\b|coins?\b|"
     r"range maps|distribution maps|"
     r"in captivity|captive|aviaries|zoos?\b|falconry|"
-    r"museum|collections?)",
+    # Con acento tamén: as coleccións francesas escríbeno «Muséum».
+    r"mus[eé]um|collections?)",
     re.IGNORECASE,
 )
 
@@ -263,6 +268,152 @@ def foto_admisible(titulo: str, categorias: str, meta: dict) -> bool:
     if obra_antiga(titulo, meta):
         return False
     return licenza_cc_ok(meta)
+
+
+COMMONS_API = "https://commons.wikimedia.org/w/api.php"
+
+# Subcategorías nas que non hai fotos do paxaro vivo. É o mesmo criterio de
+# `CATEGORIA_FÓRA`, pero aplicado antes: aquí decídese en que categorías nin se
+# entra, sen gastar unha petición en pedirlles os ficheiros.
+SUBCAT_FÓRA = re.compile(
+    r"(audio|sound|video|egg|nest|feather|skeleton|skull|bone|specimen|"
+    r"taxiderm|museum|collection|illustration|drawing|painting|engraving|"
+    r"stamp|coin|map|diagram|sonogram|spectrogram|"
+    r"captivity|captive|aviar|zoo|falconry|ringing|banding|"
+    r"unidentified|dead|tracks)",
+    re.IGNORECASE,
+)
+
+
+def categorias_de(titulos: list[str]) -> dict[str, str]:
+    """As categorías visibles de cada ficheiro, sen quedar a medias.
+
+    Hai que pedilas aparte porque a API corta por número TOTAL de categorías na
+    resposta, non por ficheiro: pedindo cincuenta ficheiros de golpe volvían
+    trinta e seis con categorías e catorce sen ningunha. E como o filtro de
+    fotos mira as categorías para saber se aquilo é un paxaro ou un exemplar de
+    museo, eses catorce pasaban sen revisar de verdade. Así acabou de foto do
+    picanzo real un ovo do Muséum de Toulouse: no título non poñía «egg», e as
+    categorías, que si o dicían, chegaran baleiras.
+
+    Séguese a continuación ata que non queda nada. Devólvese xa unido nunha
+    cadea, que é como o quere `foto_admisible`.
+    """
+    xuntas: dict[str, list[str]] = {t: [] for t in titulos}
+    if not titulos:
+        return {}
+
+    params = {
+        "action": "query", "format": "json",
+        "titles": "|".join(titulos),
+        "prop": "categories",
+        "cllimit": "max",
+        "clshow": "!hidden",
+    }
+    while True:
+        data = get_json(COMMONS_API, params)
+        for paxina in data.get("query", {}).get("pages", {}).values():
+            titulo = paxina.get("title", "")
+            xuntas.setdefault(titulo, []).extend(
+                c.get("title", "") for c in paxina.get("categories", []))
+        seguir = data.get("continue")
+        if not seguir:
+            break
+        params = {**params, **seguir}
+
+    return {t: " · ".join(cs) for t, cs in xuntas.items()}
+
+
+def subcategorias(categoria: str) -> list[str]:
+    """As subcategorías onde pode haber fotos do paxaro, xa filtradas."""
+    data = get_json(COMMONS_API, {
+        "action": "query", "format": "json",
+        "list": "categorymembers",
+        "cmtitle": categoria,
+        "cmtype": "subcat",
+        "cmlimit": 50,
+    })
+    titulos = [m["title"] for m in data.get("query", {}).get("categorymembers", [])]
+    return [t for t in titulos if not SUBCAT_FÓRA.search(t)]
+
+
+def categoria_alternativa(sci: str, familia: str | None = None,
+                          xenero: str | None = None) -> str | None:
+    """A categoría de Commons desta especie cando non se chama coma ela.
+
+    A taxonomía móvese e Commons vai por diante de GBIF: o corvo mariño
+    cristado está en «Gulosus aristotelis», a papuxa do mato en «Curruca
+    undata» e o ferreiriño palustre en «Poecile montanus». A categoría co nome
+    que dá GBIF existe pero está baleira, así que esas especies quedaban sen
+    foto e sen galería tendo centos delas.
+
+    Búscase de dous xeitos. Primeiro o nome enteiro, que é o que atopa as
+    erratas do nome científico («sibillatrix» por «sibilatrix»). Se non sae,
+    o epíteto no título, porque o buscador non sempre pon a categoría boa entre
+    as primeiras: «Curruca melanocephala» quedaba por detrás de «Quality images
+    of Sylvia melanocephala».
+
+    Buscar polo epíteto só non abondaría para dar por boa unha categoría: hai
+    unha abella que se chama «Euryglossina melanocephala», e as súas fotos
+    acabarían na ficha da papuxa. Por iso se comproba a familia: Commons
+    clasifica cada categoría de especie dentro de «Species of <familia>», e ese
+    é o dato que di se o que se atopou é o mesmo bicho.
+    """
+    xa = f"Category:{sci}".lower()
+    epiteto = sci.split()[-1].lower()
+
+    def candidatas(consulta: str) -> list[str]:
+        data = get_json(COMMONS_API, {
+            "action": "query", "format": "json",
+            "list": "search",
+            "srsearch": consulta,
+            "srnamespace": 14,   # Category:
+            "srlimit": 10,
+        })
+        saida = []
+        for r in data.get("query", {}).get("search", []):
+            titulo = r["title"]
+            nome = titulo.removeprefix("Category:")
+            # Dúas palabras e sen paréntese: iso é un nome de especie, non
+            # «... (juvenile)» nin «Quality images of ...».
+            if titulo.lower() != xa and len(nome.split()) == 2 and "(" not in nome:
+                saida.append(titulo)
+        return saida
+
+    directas = candidatas(sci)
+    por_epiteto = [c for c in candidatas(f'intitle:"{epiteto}"') if c not in directas]
+
+    for titulo in directas + por_epiteto:
+        if (familia or xenero) and not mesmo_bicho(titulo, familia, xenero):
+            continue
+        return titulo
+    return None
+
+
+def mesmo_bicho(categoria: str, familia: str | None, xenero: str | None) -> bool:
+    """Se esa categoría de Commons é do mesmo animal que buscabamos.
+
+    Mírase nas categorías pai, que en Commons son «Species of <familia>» e o
+    nome do xénero. Abonda con que coincida unha das dúas: cando a taxonomía
+    move unha especie de xénero —«Phalacrocorax aristotelis» pasou a «Gulosus
+    aristotelis»— o xénero xa non cadra, e é xustamente ese o caso que se está
+    a resolver; e ao revés, unha subespecie pode estar colgada do xénero sen
+    que a familia apareza escrita.
+    """
+    data = get_json(COMMONS_API, {
+        "action": "query", "format": "json",
+        "titles": categoria,
+        "prop": "categories",
+        "cllimit": 50,
+        "clshow": "!hidden",
+    })
+    for paxina in data.get("query", {}).get("pages", {}).values():
+        pais = " · ".join(c.get("title", "") for c in paxina.get("categories", [])).lower()
+        if familia and familia.lower() in pais:
+            return True
+        if xenero and f"category:{xenero.lower()}" in pais:
+            return True
+    return False
 
 
 def escribe_json(nome: str, data) -> Path:

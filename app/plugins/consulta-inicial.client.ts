@@ -15,6 +15,12 @@
  * non hai nada que ler, e unha ligazón con filtros abríase sen eles. Este
  * módulo avalíase co paquete de entrada, antes de que exista o encamiñador, e
  * por iso chega a tempo.
+ *
+ * O que queda por fóra: nesa primeira carga o enderezo do navegador queda sen
+ * a query aínda que os filtros si se apliquen. Non se pode arranxar desde a
+ * páxina, porque para o encamiñador a URL boa segue sendo a de entrada e un
+ * `router.replace` con eses mesmos valores non fai nada. En canto se toca
+ * calquera filtro, o enderezo volve poñerse ao día.
  */
 let daEntrada = window.location.search
 

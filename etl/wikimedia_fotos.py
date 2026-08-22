@@ -21,11 +21,13 @@ Saída:
 from __future__ import annotations
 
 import json
+import re
 import urllib.parse
 from pathlib import Path
 
-from common import (OUT_DIR, descarga_ficheiro, escribe_json, foto_admisible,
-                    get_json, log, sen_html, slug, url_segura)
+from common import (OUT_DIR, categoria_alternativa, categorias_de,
+                    descarga_ficheiro, escribe_json, foto_admisible, get_json,
+                    log, sen_html, slug, url_segura)
 
 RAIZ = Path(__file__).resolve().parent.parent
 DIR_FOTOS = RAIZ / "public" / "media" / "fotos"
@@ -45,40 +47,117 @@ LOTE_SPARQL = 100
 LOTE_COMMONS = 50
 
 
-def candidatas_da_categoria(sci: str, ancho: int) -> list[dict]:
-    """Fotos válidas de `Category:<nome científico>`, por se P18 non serve.
+# Títulos que anuncian un bando en vez dun paxaro. Non se descartan: van ao
+# final da cola, porque nalgunhas especies pelágicas é o único que hai.
+BANDO = re.compile(r"\b(many|flock|flocks|group|groups|colony|colonies|raft|"
+                   r"bando|bandada|colonia)\b", re.IGNORECASE)
+
+# Fotos que non valen aínda que pasen todos os filtros. Non hai xeito de que un
+# programa decida isto: son fotos legais, do bicho certo e ben etiquetadas, pero
+# non se ve o paxaro. Van a man, cada unha co seu motivo.
+FOTOS_VETADAS = {
+    # Un bando ao lonxe nun lago: non se distingue a galiñola de ningunha outra.
+    "Birds at Lake Naivasha (300261994).jpg",
+    # Cisne negro a contraluz e cortado.
+    "2023-04-17-black-swan1.jpg",
+    # Un bando no mar ao lonxe, e ademais con dúas especies mesturadas: nunha
+    # guía para recoñecer aves iso non serve de nada.
+    "Puffinus gravis and Puffinus griseus.jpg",
+}
+
+
+def imaxe_de_calidade(sci: str) -> str | None:
+    """Unha foto da especie co distintivo de calidade de Commons, se a hai.
+
+    Commons ten unha revisión entre pares: as fotos que pasan quedan marcadas
+    como «Quality images». É o único xuízo de calidade que hai, e está feito por
+    xente mirando as fotos, así que vale máis ca calquera regra que se poida
+    escribir aquí. Cando existe, gaña á imaxe que apunta Wikidata, que ninguén
+    escolleu pensando en como se ve nunha ficha.
+
+    Búscase coa procura de Commons e non pedindo a categoría enteira: os
+    distintivos non están no ficheiro senón nunha categoría aparte, e cruzalas
+    é o que fai `incategory`.
+    """
+    data = get_json(COMMONS, {
+        "action": "query", "format": "json",
+        "list": "search",
+        "srsearch": f'incategory:"{sci}" incategory:"Quality images"',
+        "srnamespace": 6,   # File:
+        "srlimit": 5,
+    })
+    for r in data.get("query", {}).get("search", []):
+        nome = r["title"].removeprefix("File:")
+        if nome not in FOTOS_VETADAS:
+            return nome
+    return None
+
+
+def candidatas_da_categoria(sci: str, ancho: int, categoria: str | None = None) -> list[dict]:
+    """Fotos válidas da categoría da especie, por se P18 non serve.
 
     Wikidata apunta a unha soa imaxe por taxon e ninguén garante que sexa unha
     foto: no asubiador era un selo de correos de 1994. Cando pasa iso hai que
     ir buscar á categoría, que é de onde xa sae a galería.
+
+    `categoria` permite mirar noutra distinta da que leva o nome científico:
+    fai falta para as especies que Commons ten baixo o nome novo (ver
+    `categoria_alternativa`).
     """
     data = get_json(COMMONS, {
         "action": "query", "format": "json",
         "generator": "categorymembers",
-        "gcmtitle": f"Category:{sci}",
+        "gcmtitle": categoria or f"Category:{sci}",
         "gcmtype": "file",
         "gcmlimit": 50,
-        "prop": "imageinfo|categories",
+        "prop": "imageinfo",
         "iiprop": "url|extmetadata|mime|size",
         "iiurlwidth": ancho,
-        "cllimit": 100,
-        "clshow": "!hidden",
     })
 
+    paxinas = list(data.get("query", {}).get("pages", {}).values())
+    # As categorías van nunha petición aparte: ver `categorias_de`.
+    cats_de = categorias_de([p.get("title", "") for p in paxinas])
+
     válidas = []
-    for paxina in data.get("query", {}).get("pages", {}).values():
+    for paxina in paxinas:
         info = (paxina.get("imageinfo") or [{}])[0]
         if not info.get("thumburl") or not (info.get("mime") or "").startswith("image/"):
             continue
         titulo = paxina.get("title", "").removeprefix("File:")
-        cats = " · ".join(c.get("title", "") for c in paxina.get("categories", []))
+        cats = cats_de.get(paxina.get("title", ""), "")
+        if titulo in FOTOS_VETADAS:
+            continue
         if not foto_admisible(titulo, cats, info.get("extmetadata", {})):
             continue
         válidas.append((titulo, info))
 
-    # Alfabético por título, que é como as devolve Commons: sen criterio de
-    # calidade non hai nada mellor, e polo menos é estable entre execucións.
-    válidas.sort(key=lambda x: x[0])
+    # Primeiro as que levan o nome da especie no título, e despois alfabético.
+    #
+    # Que alguén lle poña «Crested Coot (Fulica cristata)» a unha foto quere
+    # dicir que sabía o que estaba a retratar; «Coot (7513879428).jpg» é o nome
+    # que deixa unha importación automática, e pode ser calquera cousa que
+    # pasase por diante. Dentro de cada grupo mándase alfabeticamente, que é
+    # como as devolve Commons e o único estable entre execucións.
+    partes = sci.lower().split()
+    xenero, epiteto = partes[0], partes[-1]
+
+    def orde(par):
+        t = par[0].lower()
+        if sci.lower() in t or epiteto in t:
+            posto = 0        # «Crested Coot (Fulica cristata) (1).jpg»
+        elif xenero in t:
+            posto = 1        # «Columba livia in Barcelona.jpg»
+        else:
+            posto = 2        # «500px photo (155156461).jpeg», que non di nada
+        # E ao final as de bandos. Nunha guía para recoñecer aves, un paxaro
+        # grande e enteiro vale máis ca trinta ao lonxe: a pardela sombría
+        # quedaba cunha balsa de aves no mar tendo na mesma categoría un
+        # primeiro plano da cabeza.
+        bando = 1 if BANDO.search(t) else 0
+        return (posto, bando, par[0])
+
+    válidas.sort(key=orde)
     return [{"ficheiro": t, "info": i} for t, i in válidas]
 
 
@@ -130,23 +209,24 @@ def detalles_commons(ficheiros: list[str], ancho: int) -> dict[str, dict]:
             "action": "query",
             "format": "json",
             "titles": "|".join(f"File:{f}" for f in lote),
-            "prop": "imageinfo|categories",
+            "prop": "imageinfo",
             # `size` dá as medidas reais da miniatura: fan falta para amosar a
             # foto principal coa súa proporción en vez de recortala.
             "iiprop": "url|extmetadata|size",
             "iiurlwidth": ancho,
-            "cllimit": 100,
-            "clshow": "!hidden",
         })
 
-        for paxina in data.get("query", {}).get("pages", {}).values():
+        paxinas = list(data.get("query", {}).get("pages", {}).values())
+        cats_de = categorias_de([p["title"] for p in paxinas])
+
+        for paxina in paxinas:
             info = (paxina.get("imageinfo") or [{}])[0]
             if not info.get("thumburl"):
                 continue
 
             meta = info.get("extmetadata", {})
             titulo_cru = paxina["title"].removeprefix("File:")
-            cats = " · ".join(c.get("title", "") for c in paxina.get("categories", []))
+            cats = cats_de.get(paxina["title"], "")
             # Non abonda con que exista: ten que ser unha foto do paxaro.
             if not foto_admisible(titulo_cru, cats, meta):
                 continue
@@ -195,6 +275,11 @@ def main() -> None:
         anterior = {sci: d.get("ficheiro") for sci, d
                     in json.loads(previo.read_text(encoding="utf-8"))["fotos"].items()}
 
+    familias = {e["nomeCientifico"]: e.get("familia") for e in especies}
+    xeneros = {e["nomeCientifico"]: e.get("xenero") for e in especies}
+    # Especies ás que houbo que buscarlles a categoría por outro nome.
+    categorias_outras: dict[str, str] = {}
+
     catalogo: dict[str, dict] = {}
     sen_licenza = 0
     rescatadas = 0
@@ -203,20 +288,50 @@ def main() -> None:
     # Tamén se busca alternativa para as que Wikidata nin sequera coñecía.
     for nome in sorted(set(nomes)):
         ficheiro = por_nome.get(nome)
+        if ficheiro in FOTOS_VETADAS:
+            ficheiro = None
         info = grandes.get(ficheiro) if ficheiro else None
         mini = minis.get(ficheiro) if ficheiro else None
 
         # A imaxe de Wikidata non serve (é un selo, un exemplar de museo, unha
-        # ilustración) ou non existe: búscase unha foto de verdade na categoría.
+        # ilustración, ou está vetada a man) ou non existe. Búscase unha foto de
+        # verdade, por esta orde:
+        #
+        #   1. unha que teña o distintivo de calidade de Commons, que é xente
+        #      revisando fotos e non unha regra nosa;
+        #   2. a categoría da especie;
+        #   3. a categoría co nome que Commons use agora, para as especies que
+        #      cambiaron de xénero e teñen a súa baleira.
+        if not info or not mini:
+            de_calidade = imaxe_de_calidade(nome)
+            if de_calidade:
+                # Pídese o ficheiro polo seu nome e non pola categoría da
+                # especie: as fotos con distintivo adoitan estar arquivadas nunha
+                # subcategoría, e alí non as vería `candidatas_da_categoria`.
+                grande_cal = detalles_commons([de_calidade], ANCHO_GRANDE)
+                mini_cal = detalles_commons([de_calidade], ANCHO_MINI)
+                if de_calidade in grande_cal and de_calidade in mini_cal:
+                    ficheiro = de_calidade
+                    info = grande_cal[de_calidade]
+                    mini = mini_cal[de_calidade]
+                    rescatadas += 1
+                    cambiada.add(nome)
+
         if not info or not mini:
             alternativas = candidatas_da_categoria(nome, ANCHO_GRANDE)
+            if not alternativas:
+                outra = categoria_alternativa(nome, familias.get(nome), xeneros.get(nome))
+                if outra:
+                    alternativas = candidatas_da_categoria(nome, ANCHO_GRANDE, outra)
+                    categorias_outras[nome] = outra
             if not alternativas:
                 continue
             escollida = alternativas[0]
             ficheiro = escollida["ficheiro"]
             cru = escollida["info"]
             mini_cru = next((c["info"] for c in
-                             candidatas_da_categoria(nome, ANCHO_MINI)
+                             candidatas_da_categoria(nome, ANCHO_MINI,
+                                                     categorias_outras.get(nome))
                              if c["ficheiro"] == ficheiro), None)
             if not mini_cru:
                 continue
