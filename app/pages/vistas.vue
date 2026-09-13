@@ -145,6 +145,10 @@ function descarga() {
         </span>
       </p>
 
+      <!-- Fóra do `v-if` das marcas: pódese ter historial sen ter marcado nada,
+           e ese é xustamente o caso no que máis serve. -->
+      <HistorialAves />
+
       <template #fallback>
         <p class="baleiro">Cargando a túa listaxe…</p>
       </template>

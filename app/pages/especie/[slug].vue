@@ -116,7 +116,13 @@ const dataVista = computed(() => {
  * hidratación das 518 fichas.
  */
 const { posicion, carga } = useOrdeSeccions()
-onMounted(carga)
+const { anota } = useHistorial()
+
+onMounted(() => {
+  carga()
+  // Só no cliente: no prerenderizado non hai ninguén abrindo nada.
+  if (especie.value) anota(especie.value.slug, 'ficha')
+})
 
 const outrosNomes = computed(() => {
   const e = especie.value

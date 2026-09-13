@@ -48,6 +48,13 @@ watchEffect(() => {
 
 const atopadas = computed(() => deteccions.value.filter(d => d.confianza >= LIMIAR))
 
+// O que suxire o identificador queda no historial de «As miñas aves»: é o que
+// permite volver a un paxaro que soou probable e que non chegaches a marcar.
+const { anota } = useHistorial()
+watch(deteccions, () => {
+  for (const d of atopadas.value) anota(d.especie.slug, 'son', d.confianza)
+})
+
 /**
  * A confianza en palabras. A cifra segue aí ao lado: a palabra é para decidir
  * nun segundo co paxaro diante, e o número para quen queira saber canto.
